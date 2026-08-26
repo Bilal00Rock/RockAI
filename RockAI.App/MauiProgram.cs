@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using RockAI.Infrastructure;
-using RockAI.App.Services.Authentication;
 
 namespace RockAI.App
 {
@@ -20,26 +19,7 @@ namespace RockAI.App
             // Register infrastructure (EF Core, repositories, unit of work, etc.)
             builder.Services.AddInfrastructure();
 
-            // Token storage for attaching JWT to requests
-            builder.Services.AddSingleton<ITokenStorage, SecureTokenStorage>();
-            // Authentication service and view models
-            builder.Services.AddSingleton<IAuthenticationService, AuthenticationService>();
             builder.Services.AddTransient<ViewModels.LoginViewModel>();
-            // HttpClient configured to attach Authorization header when a token exists.
-            builder.Services.AddSingleton(sp =>
-            {
-                var tokenStorage = sp.GetRequiredService<ITokenStorage>();
-                var handler = new AuthenticatedHttpClientHandler(tokenStorage)
-                {
-                    InnerHandler = new HttpClientHandler()
-                };
-
-                // Replace the BaseAddress with your API base URL or configure it externally.
-                return new HttpClient(handler)
-                {
-                    BaseAddress = new Uri("https://api.example.com/")
-                };
-            });
 
 #if DEBUG
             builder.Logging.AddDebug();

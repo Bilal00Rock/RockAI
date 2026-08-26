@@ -1,7 +1,7 @@
-using RockAI.Domain.Messages;
-using RockAI.Infrastructure.Common.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using RockAI.Domain.Conversations;
+using RockAI.Domain.Messages;
 
 namespace RockAI.Infrastructure.Messages.Persistence;
 
@@ -11,35 +11,35 @@ public class MessageConfigurations : IEntityTypeConfiguration<Message>
     {
         builder.ToTable("Messages");
 
-        builder.HasKey(s => s.Id);
+        builder.HasKey(m => m.Id);
 
-        builder.Property(s => s.Id)
+        builder.Property(m => m.Id)
             .ValueGeneratedNever();
 
-        builder.Property(t => t.Content)
-            .IsRequired();
-        
-        builder.Property(t => t.CreatedAt)
-            .IsRequired();
-        
-        builder.Property(s => s.ConversationId)
+        builder.Property(m => m.Content)
             .IsRequired();
 
-        // Configure MessageRole as value object (if it's a SmartEnum)
-        builder.Property(t => t.MessageRole)
+        builder.Property(m => m.CreatedAt)
+            .IsRequired();
+
+        builder.Property(m => m.ConversationId)
+            .IsRequired();
+
+        builder.HasOne<Conversation>()
+            .WithMany()
+            .HasForeignKey(m => m.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(m => m.MessageRole)
             .HasConversion(
-                messageRole => messageRole.Value,  // Store the int value
-                value => MessageRole.FromValue(value)  // Convert back to enum
-            )
+                messageRole => messageRole.Value,
+                value => MessageRole.FromValue(value))
             .IsRequired();
 
-        // Configure MessageStatus as value object (if it's a SmartEnum)
-        builder.Property(t => t.Status)
+        builder.Property(m => m.Status)
             .HasConversion(
-                messageStatus => messageStatus.Value,  // Store the int value
-                value => MessageStatus.FromValue(value)  // Convert back to enum
-            )
+                messageStatus => messageStatus.Value,
+                value => MessageStatus.FromValue(value))
             .IsRequired();
-
     }
 }

@@ -1,7 +1,8 @@
-using RockAI.Domain.Conversations;
-using RockAI.Infrastructure.Common.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using RockAI.Domain.Conversations;
+using RockAI.Domain.Users;
+using RockAI.Infrastructure.Common.Persistence;
 
 namespace RockAI.Infrastructure.Conversations.Persistence;
 
@@ -26,7 +27,14 @@ public class ConversationConfigurations : IEntityTypeConfiguration<Conversation>
         builder.Property(t => t.CreatedAt)
             .IsRequired();
 
-        
+        builder.Property(c => c.UserId)
+    .IsRequired();
+
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(c => c.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Configure ConversationType as value object (if it's a SmartEnum)
         builder.Property(t => t.ConversationType)
             .HasConversion(

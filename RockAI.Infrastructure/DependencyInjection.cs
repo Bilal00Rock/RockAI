@@ -23,9 +23,10 @@ public static class DependencyInjection
 
     public static IServiceCollection AddPersistence(this IServiceCollection services)
     {
-        // Use a local SQLite database for the MAUI application.
         services.AddDbContext<RockAIDbContext>(options =>
-            options.UseSqlite("Data Source=RockAI.db"));
+    options.UseSqlite(
+        "Data Source=RockAI.db",
+        sqlite => sqlite.MigrationsAssembly("RockAI.Migrations")));
 
         services.AddScoped<IMessagesRepository, MessagesRepository>();
         services.AddScoped<IConversationsRepository, ConversationsRepository>();

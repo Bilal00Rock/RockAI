@@ -7,6 +7,7 @@
     <Project Path="RockAI.Contracts/RockAI.Contracts.csproj" />
     <Project Path="RockAI.Domain/RockAI.Domain.csproj" />
     <Project Path="RockAI.Infrastructure/RockAI.Infrastructure.csproj" />
+    <Project Path="RockAI.Migrations/RockAI.Migrations.csproj" />
     <Project Path="RockAI.Platform.Windows/RockAI.Platform.Windows.csproj" />
   </Folder>
   <Folder Name="/test/" />

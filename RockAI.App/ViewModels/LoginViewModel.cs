@@ -4,18 +4,14 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
-using RockAI.App.Services.Authentication;
 
 namespace RockAI.App.ViewModels;
 
 public class LoginViewModel : INotifyPropertyChanged
 {
-    private readonly IAuthenticationService _authenticationService;
 
-    public LoginViewModel(IAuthenticationService authenticationService)
+    public LoginViewModel()
     {
-        _authenticationService = authenticationService;
-        LoginCommand = new Command(async () => await ExecuteLoginAsync(), () => !IsBusy);
     }
 
     private string _email = string.Empty;
@@ -75,16 +71,7 @@ public class LoginViewModel : INotifyPropertyChanged
 
         try
         {
-            var success = await _authenticationService.LoginAsync(Email?.Trim() ?? string.Empty, Password ?? string.Empty);
-            if (!success)
-            {
-                ErrorMessage = "Login failed. Check credentials or network.";
-            }
-            else
-            {
-                // Successful login: consumer (page) can observe token via IAuthenticationService or navigate.
-                ErrorMessage = null;
-            }
+           
         }
         catch (Exception ex)
         {

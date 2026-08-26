@@ -16,9 +16,9 @@ public class UserConfigurations : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.Email);
 
-        builder.Property(u => u.UserRoles);
-
         builder.Property("_passwordHash")
             .HasColumnName("PasswordHash");
+        builder.Ignore(u => u.UserRoles);
+
     }
 }
