@@ -77,4 +77,10 @@
 	  <ProjectReference Include="..\RockAI.Platform.Windows\RockAI.Platform.Windows.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <MauiXaml Update="Views\LoginPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	</ItemGroup>
+
 </Project>

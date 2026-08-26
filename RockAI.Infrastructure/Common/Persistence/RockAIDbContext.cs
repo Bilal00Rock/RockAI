@@ -1,67 +1,49 @@
+using System.Reflection;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
 using RockAI.Application.Common.Interfaces;
-using RockAI.Domain.Conversations;
 using RockAI.Domain.Common.Interfaces;
+using RockAI.Domain.Conversations;
 using RockAI.Domain.Messages;
 using RockAI.Domain.Users;
-using System.Reflection;
 
 namespace RockAI.Infrastructure.Common.Persistence;
 
-public class RockAIDbContext(DbContextOptions options,
-        IHttpContextAccessor httpContextAccessor,
-        IPublisher _publisher): DbContext(options), IUnitOfWork
+public class RockAIDbContext : DbContext, IUnitOfWork
 {
-    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+    private readonly IPublisher _publisher;
+
+    public RockAIDbContext(DbContextOptions<RockAIDbContext> options, IPublisher publisher)
+        : base(options)
+    {
+        _publisher = publisher;
+    }
+
     public DbSet<Conversation> Conversations { get; set; } = null!;
     public DbSet<Message> Messages { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
+
     public async Task CommitChangesAsync()
     {
-        // get hold of all the domain events
+        // Persist changes first. Domain events are popped and published only after a successful save
+        // so handlers can rely on persisted state.
+        await SaveChangesAsync();
+
+        // collect domain events from tracked entities (pop clears the lists)
         var domainEvents = ChangeTracker.Entries<Entity>()
             .Select(entry => entry.Entity.PopDomainEvents())
             .SelectMany(x => x)
             .ToList();
 
-         // store them in the http context for later if user is waiting online
-        if (IsUserWaitingOnline())
+        if (domainEvents.Count > 0)
         {
-            AddDomainEventsToOfflineProcessingQueue(domainEvents);
-        }
-        else
-        {
-            await PublishDomainEvents(_publisher, domainEvents);
-        }
-
-        await SaveChangesAsync();
-    }   
-    private static async Task PublishDomainEvents(IPublisher _publisher, List<IDomainEvent> domainEvents)
-    {
-        foreach (var domainEvent in domainEvents)
-        {
-            await _publisher.Publish(domainEvent);
+            foreach (var domainEvent in domainEvents)
+            {
+                await _publisher.Publish(domainEvent);
+            }
         }
     }
 
-    private bool IsUserWaitingOnline() => _httpContextAccessor.HttpContext is not null;
-
-    private void AddDomainEventsToOfflineProcessingQueue(List<IDomainEvent> domainEvents)
-    {
-        // fetch queue from http context or create a new queue if it doesn't exist
-        var domainEventsQueue = _httpContextAccessor.HttpContext!.Items
-            .TryGetValue("DomainEventsQueue", out var value) && value is Queue<IDomainEvent> existingDomainEvents
-                ? existingDomainEvents
-                : new Queue<IDomainEvent>();
-
-        // add the domain events to the end of the queue
-        domainEvents.ForEach(domainEventsQueue.Enqueue);
-
-        // store the queue in the http context
-        _httpContextAccessor.HttpContext!.Items["DomainEventsQueue"] = domainEventsQueue;
-    }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
