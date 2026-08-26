@@ -1,0 +1,6 @@
+namespace RockAI.Application.Common.Interfaces;
+
+public interface IUnitOfWork
+{
+    Task CommitChangesAsync();
+}

@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RockAI.Domain\RockAI.Domain.csproj" />
+    <ProjectReference Include="..\RockAI.Application\RockAI.Application.csproj" />
   </ItemGroup>
 
 </Project>

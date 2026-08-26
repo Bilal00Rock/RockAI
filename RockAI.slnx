@@ -1,11 +1,13 @@
 <Solution>
-  <Project Path="RockAI.Agent/RockAI.Agent.csproj" />
-  <Project Path="RockAI.AI/RockAI.AI.csproj" />
-  <Project Path="RockAI.App/RockAI.App.csproj" />
-  <Project Path="RockAI.Application/RockAI.Application.csproj" />
-  <Project Path="RockAI.Domain/RockAI.Domain.csproj" />
-  <Project Path="RockAI.Infrastructure/RockAI.Infrastructure.csproj" />
-  <Project Path="RockAI.Tools/RockAI.Tools.csproj" />
-  <Project Path="RockAI.Voice/RockAI.Voice.csproj" />
-  <Project Path="RockAI.Windows/RockAI.Windows.csproj" />
+  <Folder Name="/src/">
+    <Project Path="RockAI.App/RockAI.App.csproj">
+      <Deploy Solution="Debug|*" />
+    </Project>
+    <Project Path="RockAI.Application/RockAI.Application.csproj" />
+    <Project Path="RockAI.Contracts/RockAI.Contracts.csproj" />
+    <Project Path="RockAI.Domain/RockAI.Domain.csproj" />
+    <Project Path="RockAI.Infrastructure/RockAI.Infrastructure.csproj" />
+    <Project Path="RockAI.Platform.Windows/RockAI.Platform.Windows.csproj" />
+  </Folder>
+  <Folder Name="/test/" />
 </Solution>
