@@ -74,6 +74,7 @@
 	  <ProjectReference Include="..\RockAI.Application\RockAI.Application.csproj" />
 	  <ProjectReference Include="..\RockAI.Contracts\RockAI.Contracts.csproj" />
 	  <ProjectReference Include="..\RockAI.Infrastructure\RockAI.Infrastructure.csproj" />
+	  <ProjectReference Include="..\RockAI.Migrations\RockAI.Migrations.csproj" />
 	  <ProjectReference Include="..\RockAI.Platform.Windows\RockAI.Platform.Windows.csproj" />
 	</ItemGroup>
 

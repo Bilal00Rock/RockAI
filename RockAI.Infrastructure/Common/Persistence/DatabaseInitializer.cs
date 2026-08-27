@@ -26,7 +26,7 @@ public class DatabaseInitializer
         // Apply migrations if any exist, otherwise create the database.
         await _dbContext.Database.MigrateAsync();
 
-        const string adminEmail = "admin@example.com";
+        const string adminEmail = "rock@test.com";
         const string adminPassword = "Password123!"; // change after first run
 
         if (!await _usersRepository.ExistsByEmailAsync(adminEmail))
@@ -37,15 +37,14 @@ public class DatabaseInitializer
                 // If hashing failed (e.g., password policy), throw so developer can fix
                 throw new InvalidOperationException("Failed to create admin password hash: " + string.Join(';', hashResult.FirstError.Description));
             }
-
+            
             var user = new User(
-                firstName: "Administrator",
-                lastName: "",
-                email: adminEmail,
-                passwordHash: hashResult.Value,
-                roles: new[] { UserRole.Admin }
-            );
 
+            firstName: "Rock",
+            lastName: "Admin",
+            email: "rock@test.com",
+    passwordHash: hashResult.Value
+);
             await _usersRepository.AddUserAsync(user);
             await _unitOfWork.CommitChangesAsync();
         }

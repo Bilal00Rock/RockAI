@@ -29,6 +29,7 @@ public class RockAIDbContextFactory : IDesignTimeDbContextFactory<RockAIDbContex
             "Data Source=RockAI.db",
             sqlite => sqlite.MigrationsAssembly("RockAI.Migrations"));
 
+
         return new RockAIDbContext(
             optionsBuilder.Options,
             serviceProvider.GetRequiredService<IPublisher>());

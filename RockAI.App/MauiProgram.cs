@@ -1,4 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
+using RockAI.Application;
+using RockAI.Application.Authentication;
+using RockAI.Application.Common.Interfaces;
 using RockAI.Infrastructure;
 
 namespace RockAI.App
@@ -15,9 +18,17 @@ namespace RockAI.App
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
-
+            builder.Services.AddMediatR(cfg =>
+            {
+                cfg.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly);
+            });
             // Register infrastructure (EF Core, repositories, unit of work, etc.)
-            builder.Services.AddInfrastructure();
+            var databasePath = Path.Combine(
+    FileSystem.AppDataDirectory,
+    "RockAI.db");
+
+            builder.Services.AddInfrastructure(databasePath);
+            builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
             builder.Services.AddTransient<ViewModels.LoginViewModel>();
 
@@ -40,9 +51,13 @@ namespace RockAI.App
                     initializer.InitializeAsync().GetAwaiter().GetResult();
                 }
             }
-            catch
+            catch(Exception ex) 
             {
                 // Initialization failed; swallow to avoid crashing app at startup. Log as needed.
+#if DEBUG
+                System.Diagnostics.Debug.WriteLine(
+                    $"Database initialization failed: {ex}");
+#endif
             }
 
             return app;

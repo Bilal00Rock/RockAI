@@ -1,77 +1,112 @@
-using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using System.Windows.Input;
-using Microsoft.Maui.Controls;
+using RockAI.Application.Common.Interfaces;
 
 namespace RockAI.App.ViewModels;
 
 public class LoginViewModel : INotifyPropertyChanged
 {
-
-    public LoginViewModel()
-    {
-    }
+    private readonly IAuthenticationService _authenticationService;
 
     private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _errorMessage = string.Empty;
+    private bool _isBusy;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Email
     {
         get => _email;
-        set { SetProperty(ref _email, value); }
-    }
-
-    private string _password = string.Empty;
-    public string Password
-    {
-        get => _password;
-        set { SetProperty(ref _password, value); }
-    }
-
-    private bool _isBusy;
-    public bool IsBusy
-    {
-        get => _isBusy;
         set
         {
-            if (SetProperty(ref _isBusy, value))
-            {
-                ((Command)LoginCommand).ChangeCanExecute();
-            }
+            if (_email == value)
+                return;
+
+            _email = value;
+            OnPropertyChanged();
         }
     }
 
-    private string? _errorMessage;
-    public string? ErrorMessage
+    public string Password
+    {
+        get => _password;
+        set
+        {
+            if (_password == value)
+                return;
+
+            _password = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string ErrorMessage
     {
         get => _errorMessage;
-        set { SetProperty(ref _errorMessage, value); }
+        private set
+        {
+            if (_errorMessage == value)
+                return;
+
+            _errorMessage = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (_isBusy == value)
+                return;
+
+            _isBusy = value;
+            OnPropertyChanged();
+
+            ((Command)LoginCommand).ChangeCanExecute();
+        }
     }
 
     public ICommand LoginCommand { get; }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string? propertyName = null)
+    public LoginViewModel(IAuthenticationService authenticationService)
     {
-        if (EqualityComparer<T>.Default.Equals(backingStore, value))
-            return false;
+        _authenticationService = authenticationService;
 
-        backingStore = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        return true;
+        LoginCommand = new Command(
+            async () => await LoginAsync(),
+            () => !IsBusy);
     }
 
-    private async Task ExecuteLoginAsync()
+    private async Task LoginAsync()
     {
-        if (IsBusy) return;
+        if (IsBusy)
+            return;
 
+        ErrorMessage = string.Empty;
         IsBusy = true;
-        ErrorMessage = null;
 
         try
         {
-           
+            var result = await _authenticationService.LoginAsync(
+                Email,
+                Password);
+
+            result.Switch(
+                user =>
+                {
+                    Debug.WriteLine(
+                        $"Logged in: {user.FirstName} {user.LastName}");
+                },
+                errors =>
+                {
+                    ErrorMessage = errors.FirstOrDefault().Description
+                                    ?? "Login failed.";
+                });
         }
         catch (Exception ex)
         {
@@ -81,5 +116,13 @@ public class LoginViewModel : INotifyPropertyChanged
         {
             IsBusy = false;
         }
+    }
+
+    private void OnPropertyChanged(
+        [CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(
+            this,
+            new PropertyChangedEventArgs(propertyName));
     }
 }

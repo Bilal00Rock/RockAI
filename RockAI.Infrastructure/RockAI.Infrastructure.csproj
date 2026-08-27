@@ -27,8 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Authentication\Claims\" />
-    <Folder Include="Authentication\TokenGenerator\" />
     <Folder Include="Common\Middleware\" />
   </ItemGroup>
 

@@ -6,7 +6,6 @@ using RockAI.Infrastructure.Common.Persistence;
 using RockAI.Infrastructure.Messages.Persistence;
 using RockAI.Infrastructure.Conversations.Persistence;
 using RockAI.Infrastructure.Users.Persistence;
-using RockAI.Domain.Common.Interfaces;
 using RockAI.Infrastructure.Authentication.PasswordHasher;
 
 namespace RockAI.Infrastructure;
@@ -15,23 +14,33 @@ public static class DependencyInjection
 {
     // MAUI / client-side infrastructure registration.
     // This project must not register ASP.NET Core server authentication or JWT generation.
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, string databasePath)
     {
-        return services
-            .AddPersistence();
+        //return services
+        //    .AddPersistence();
+        services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssembly(
+                typeof(RockAIDbContext).Assembly);
+        });
+
+        return services.AddPersistence(databasePath);
     }
 
-    public static IServiceCollection AddPersistence(this IServiceCollection services)
+    public static IServiceCollection AddPersistence(this IServiceCollection services, string databasePath)
     {
+    //    services.AddDbContext<RockAIDbContext>(options =>
+    //options.UseSqlite(
+    //    "Data Source=RockAI.db",
+    //    sqlite => sqlite.MigrationsAssembly("RockAI.Migrations")));
         services.AddDbContext<RockAIDbContext>(options =>
-    options.UseSqlite(
-        "Data Source=RockAI.db",
-        sqlite => sqlite.MigrationsAssembly("RockAI.Migrations")));
+        options.UseSqlite(
+            $"Data Source={databasePath}",
+            sqlite => sqlite.MigrationsAssembly("RockAI.Migrations")));
 
         services.AddScoped<IMessagesRepository, MessagesRepository>();
         services.AddScoped<IConversationsRepository, ConversationsRepository>();
         services.AddScoped<IUsersRepository, UsersRepository>();
-
         // Register the DbContext as the unit of work implementation
         services.AddScoped<IUnitOfWork>(serviceProvider => serviceProvider.GetRequiredService<RockAIDbContext>());
 
