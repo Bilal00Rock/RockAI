@@ -1,14 +1,15 @@
+using RockAI.Application.Common.Interfaces;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using RockAI.Application.Common.Interfaces;
 
 namespace RockAI.App.ViewModels;
 
 public class LoginViewModel : INotifyPropertyChanged
 {
     private readonly IAuthenticationService _authenticationService;
+    private readonly IUserSession _userSession;
 
     private string _email = string.Empty;
     private string _password = string.Empty;
@@ -73,9 +74,11 @@ public class LoginViewModel : INotifyPropertyChanged
 
     public ICommand LoginCommand { get; }
 
-    public LoginViewModel(IAuthenticationService authenticationService)
+    public event EventHandler? LoginSucceeded;
+    public LoginViewModel(IAuthenticationService authenticationService, IUserSession userSession)
     {
         _authenticationService = authenticationService;
+        _userSession = userSession;
 
         LoginCommand = new Command(
             async () => await LoginAsync(),
@@ -95,18 +98,14 @@ public class LoginViewModel : INotifyPropertyChanged
             var result = await _authenticationService.LoginAsync(
                 Email,
                 Password);
+            if (result.IsError)
+            {
+                ErrorMessage = result.Errors.First().Description;
+                return;
+            }
 
-            result.Switch(
-                user =>
-                {
-                    Debug.WriteLine(
-                        $"Logged in: {user.FirstName} {user.LastName}");
-                },
-                errors =>
-                {
-                    ErrorMessage = errors.FirstOrDefault().Description
-                                    ?? "Login failed.";
-                });
+            await _userSession.SetAsync(result.Value);
+            LoginSucceeded?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {

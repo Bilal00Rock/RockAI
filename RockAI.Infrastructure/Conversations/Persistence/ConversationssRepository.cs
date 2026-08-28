@@ -14,28 +14,32 @@ public class ConversationsRepository : IConversationsRepository
         _dbContext = dbContext;
     }
 
-    public async Task AddConversationAsync(Conversation Conversation)
+    public async Task AddConversationAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
-        await _dbContext.Conversations.AddAsync(Conversation);
+        await _dbContext.Conversations.AddAsync(conversation, cancellationToken);
     }
 
-    public async Task<Conversation?> GetByIdAsync(Guid id)
+    public async Task<Conversation?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Conversations.FirstOrDefaultAsync(c => c.Id == id);
+        return await _dbContext.Conversations
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
     }
 
-    public async Task<List<Conversation>> ListByUserIdAsync(Guid id)
+    public async Task<List<Conversation>> ListByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Conversations.Where(conversation => conversation.UserId == id).ToListAsync();
+        return await _dbContext.Conversations
+            .Where(conversation => conversation.UserId == userId)
+            .OrderByDescending(conversation => conversation.CreatedAt)
+            .ToListAsync(cancellationToken);
     }
 
-    public Task UpdateAsync(Conversation conversation)
+    public Task UpdateAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
         _dbContext.Conversations.Update(conversation);
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(Conversation conversation)
+    public Task DeleteAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
         if (conversation is not null)
         {

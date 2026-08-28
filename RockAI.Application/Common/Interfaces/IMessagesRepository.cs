@@ -4,9 +4,9 @@ namespace RockAI.Application.Common.Interfaces;
 
 public interface IMessagesRepository
 {
-    Task AddMessageAsync(Message message);
-    Task<Message?> GetByIdAsync(Guid id);
-    Task<List<Message>> ListByConversationIdAsync(Guid id);
-    Task UpdateAsync(Message message);   
-    Task DeleteAsync(Message message); 
+    Task AddMessageAsync(Message message, CancellationToken cancellationToken = default);
+    Task<Message?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<List<Message>> ListByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default);
+    Task UpdateAsync(Message message, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Message message, CancellationToken cancellationToken = default);
 }

@@ -14,28 +14,31 @@ public class MessagesRepository : IMessagesRepository
         _dbContext = dbContext;
     }
 
-    public async Task AddMessageAsync(Message message)
+    public async Task AddMessageAsync(Message message, CancellationToken cancellationToken = default)
     {
-        await _dbContext.Messages.AddAsync(message);
+        await _dbContext.Messages.AddAsync(message, cancellationToken);
     }
 
-    public async Task<Message?> GetByIdAsync(Guid id)
+    public async Task<Message?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Messages.FirstOrDefaultAsync(m => m.Id == id);
+        return await _dbContext.Messages.FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
-    public async Task<List<Message>> ListByConversationIdAsync(Guid id)
+    public async Task<List<Message>> ListByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Messages.Where(message => message.ConversationId == id).ToListAsync();
+        return await _dbContext.Messages
+            .Where(message => message.ConversationId == conversationId)
+            .OrderBy(message => message.CreatedAt)
+            .ToListAsync(cancellationToken);
     }
 
-    public Task UpdateAsync(Message message)
+    public Task UpdateAsync(Message message, CancellationToken cancellationToken = default)
     {
         _dbContext.Messages.Update(message);
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(Message message)
+    public Task DeleteAsync(Message message, CancellationToken cancellationToken = default)
     {
         if (message is not null)
         {

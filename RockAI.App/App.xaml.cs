@@ -15,7 +15,10 @@ namespace RockAI.App
 
         protected override Window CreateWindow(IActivationState? activationState)
         {
-            return new Window(new AppShell());
+            var shell = new AppShell();
+            var window = new Window(shell);
+            _ = shell.InitializeAsync();
+            return window;
         }
     }
 }
