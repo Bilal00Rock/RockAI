@@ -8,7 +8,10 @@ using RockAI.Application.Common.Interfaces;
 using RockAI.Application.Conversations;
 using RockAI.Application.Messages;
 using RockAI.Infrastructure;
-
+#if WINDOWS
+using RockAI.Platform.Windows.Services.OllamaAI;
+using RockAI.Platform.Windows.Services;
+#endif
 namespace RockAI.App
 {
     public static class MauiProgram
@@ -45,6 +48,12 @@ namespace RockAI.App
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<MainPage>();
+
+#if WINDOWS
+            builder.Services.AddSingleton<IAIModelResolver, AIModelResolver>();
+            builder.Services.AddSingleton<IAIService, OllamaAIService>();
+#endif
+
 
 #if DEBUG
             builder.Logging.AddDebug();

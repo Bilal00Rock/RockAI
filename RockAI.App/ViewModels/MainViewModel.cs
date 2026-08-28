@@ -1,7 +1,9 @@
+using Microsoft.Maui.Controls;
+using RockAI.Application.Common.Enums;
 using RockAI.Application.Common.Interfaces;
+using RockAI.Application.Common.Models;
 using RockAI.Domain.Conversations;
 using RockAI.Domain.Messages;
-using Microsoft.Maui.Controls;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -28,6 +30,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public string WelcomeMessage => $"Welcome, {_userSession.FullName}!";
     public Guid? UserId => _userSession.UserId;
+    private readonly IAIService _aiService;
 
     //public Conversation? SelectedConversation
     //{
@@ -110,17 +113,68 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public MainViewModel(
         IConversationService conversationService,
         IMessageService messageService,
-        IUserSession userSession)
+        IUserSession userSession,
+         IAIService aiService)
     {
         _conversationService = conversationService;
         _messageService = messageService;
         _userSession = userSession;
+        _aiService = aiService;
+        
 
         NewConversationCommand = new Command(async () => await CreateConversationAsync(), () => !IsBusy);
         SendMessageCommand = new Command(async () => await SendMessageAsync(), () => !IsBusy && SelectedConversation is not null && !string.IsNullOrWhiteSpace(MessageText));
-        LogoutCommand = new Command(async () => await LogoutAsync(), () => !IsBusy);
+        LogoutCommand = new Command(async () => await TestAIAsync(), () => !IsBusy);
     }
+    private async Task TestAIGenAsync()
+    {
+        var result = await _aiService.GenerateAsync(
+            new AIRequest
+            {
+                Model = "gemma3:4b",
+                Prompt = "Say hello in one sentence."
+            });
 
+        if (result.IsError)
+        {
+            ErrorMessage = result.FirstError.Description;
+            return;
+        }
+
+        ErrorMessage = result.Value;
+    }
+    public async Task TestAIAsync()
+    {
+        var request = new AIChatRequest
+        {
+            Task = AITask.Chat,
+            Messages =
+            [
+                new AIMessage
+            {
+                Role = AIMessageRole.System,
+                Content = "You are RockAI, a helpful AI assistant."
+            },
+            new AIMessage
+            {
+                Role = AIMessageRole.User,
+                Content = "Tell me a short story about a robot."
+            }
+            ]
+        };
+
+        var result = string.Empty;
+
+        await foreach (var chunk in _aiService.GenerateStreamingAsync(request))
+        {
+            result += chunk;
+
+            System.Diagnostics.Debug.WriteLine(chunk);
+        }
+
+        System.Diagnostics.Debug.WriteLine(
+            $"COMPLETE: {result}");
+    }
     private async Task LogoutAsync()
     {
         if (IsBusy)
