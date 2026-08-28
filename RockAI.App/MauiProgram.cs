@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using RockAI.App.Services.Authentication;
+using RockAI.App.ViewModels;
+using RockAI.App.Views;
 using RockAI.Application;
 using RockAI.Application.Authentication;
-using RockAI.Application.Messages;
-using RockAI.Application.Conversations;
 using RockAI.Application.Common.Interfaces;
+using RockAI.Application.Conversations;
+using RockAI.Application.Messages;
 using RockAI.Infrastructure;
 
 namespace RockAI.App
@@ -35,8 +37,14 @@ namespace RockAI.App
             builder.Services.AddScoped<IConversationService, ConversationService>();
             builder.Services.AddScoped<IMessageService, MessageService>();
             builder.Services.AddSingleton<IUserSession, UserSession>();
-            builder.Services.AddTransient<ViewModels.LoginViewModel>();
-            builder.Services.AddTransient<ViewModels.MainViewModel>();
+            //builder.Services.AddTransient<ViewModels.LoginViewModel>();
+            //builder.Services.AddTransient<ViewModels.MainViewModel>();
+
+            builder.Services.AddTransient<LoginViewModel>();
+            builder.Services.AddTransient<MainViewModel>();
+
+            builder.Services.AddTransient<LoginPage>();
+            builder.Services.AddTransient<MainPage>();
 
 #if DEBUG
             builder.Logging.AddDebug();

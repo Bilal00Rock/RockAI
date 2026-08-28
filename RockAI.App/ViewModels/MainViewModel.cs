@@ -29,6 +29,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string WelcomeMessage => $"Welcome, {_userSession.FullName}!";
     public Guid? UserId => _userSession.UserId;
 
+    //public Conversation? SelectedConversation
+    //{
+    //    get => _selectedConversation;
+    //    set
+    //    {
+    //        if (_selectedConversation == value)
+    //            return;
+
+    //        _selectedConversation = value;
+    //        OnPropertyChanged();
+    //        var selectionVersion = ++_selectionVersion;
+    //        _selectedConversationLoadTask = LoadSelectedConversationAsync(value, selectionVersion);
+    //    }
+    //}
     public Conversation? SelectedConversation
     {
         get => _selectedConversation;
@@ -39,11 +53,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             _selectedConversation = value;
             OnPropertyChanged();
+
+            ((Command)SendMessageCommand).ChangeCanExecute();
+
             var selectionVersion = ++_selectionVersion;
-            _selectedConversationLoadTask = LoadSelectedConversationAsync(value, selectionVersion);
+            _selectedConversationLoadTask =
+                LoadSelectedConversationAsync(value, selectionVersion);
         }
     }
-
     public string MessageText
     {
         get => _messageText;

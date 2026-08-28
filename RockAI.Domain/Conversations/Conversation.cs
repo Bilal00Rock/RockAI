@@ -38,7 +38,7 @@ public class Conversation : Entity
         Title = title;
         UserId = userId;
         IsCompleted = isCompleted;
-        
+        CreatedAt = createdAt ?? DateTime.UtcNow;
         if (isCompleted)
         {
             CompletedAt = DateTime.UtcNow;

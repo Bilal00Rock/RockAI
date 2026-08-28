@@ -12,9 +12,7 @@ public partial class LoginPage : ContentPage
     {
 
         InitializeComponent();
-        _viewModel =
-           RockAI.App.App.Services
-               .GetRequiredService<LoginViewModel>();
+        _viewModel = RockAI.App.App.Services.GetRequiredService<LoginViewModel>();
 
         BindingContext = _viewModel;
 
@@ -27,8 +25,13 @@ public partial class LoginPage : ContentPage
         await Shell.Current.GoToAsync("//MainPage");
     }
 
+    //protected override void OnDisappearing()
+    //{
+    //    base.OnDisappearing();
+    //}
     protected override void OnDisappearing()
     {
+        _viewModel.LoginSucceeded -= OnLoginSucceeded;
         base.OnDisappearing();
     }
 }
