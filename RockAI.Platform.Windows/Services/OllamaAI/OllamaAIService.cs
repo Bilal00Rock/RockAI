@@ -41,14 +41,10 @@ public sealed class OllamaAIService : IAIService
         var model = string.IsNullOrWhiteSpace(request.Model) ? _modelResolver.ResolveModel(request.Task) : request.Model;
 
         if (string.IsNullOrWhiteSpace(request.Prompt))
-            return Error.Validation(
-                code: "AI.Prompt.Empty",
-                description: "AI prompt cannot be empty.");
+            return OllamaErrors.PromptEmpty;
 
         if (string.IsNullOrWhiteSpace(request.Model))
-            return Error.Validation(
-                code: "AI.Model.Empty",
-                description: "AI model must be specified.");
+            return OllamaErrors.ModelEmpty;
 
         var ollamaRequest = new OllamaGenerateRequest
         {
@@ -75,9 +71,8 @@ public sealed class OllamaAIService : IAIService
             {
                 var error = await response.Content.ReadAsStringAsync(cancellationToken);
 
-                return Error.Failure(
-                    code: "AI.Ollama.RequestFailed",
-                    description: string.IsNullOrWhiteSpace(error)
+                return OllamaErrors.RequestFailed(
+                    string.IsNullOrWhiteSpace(error)
                         ? $"Ollama returned HTTP {(int)response.StatusCode}."
                         : error);
             }
@@ -87,9 +82,7 @@ public sealed class OllamaAIService : IAIService
 
             if (result is null || string.IsNullOrWhiteSpace(result.Response))
             {
-                return Error.Failure(
-                    code: "AI.Ollama.EmptyResponse",
-                    description: "Ollama returned an empty response.");
+                return OllamaErrors.EmptyResponse;
             }
 
             return result.Response;
@@ -97,21 +90,15 @@ public sealed class OllamaAIService : IAIService
         catch (OperationCanceledException)
             when (cancellationToken.IsCancellationRequested)
         {
-            return Error.Failure(
-                code: "AI.Request.Cancelled",
-                description: "The AI request was cancelled.");
+            return OllamaErrors.RequestCancelled;
         }
         catch (HttpRequestException ex)
         {
-            return Error.Failure(
-                code: "AI.Ollama.ConnectionFailed",
-                description: $"Could not connect to Ollama. Make sure Ollama is running. {ex.Message}");
+            return OllamaErrors.ConnectionFailed(ex.Message);
         }
         catch (Exception ex)
         {
-            return Error.Failure(
-                code: "AI.Ollama.UnknownError",
-                description: ex.Message);
+            return OllamaErrors.UnknownError(ex.Message);
         }
     }
 

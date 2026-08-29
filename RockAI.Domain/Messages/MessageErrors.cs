@@ -4,6 +4,10 @@ namespace RockAI.Domain.Messages;
 
 public static class MessageErrors
 {
+    public static readonly Error NotFound = Error.NotFound(
+        code: "Message.NotFound",
+        description: "Message was not found.");
+
     public static readonly Error CannotUpdateCompletedMessage = Error.Validation(
         code: "Message.CannotUpdateCompletedMessage",
         description: "Cannot update a completed message. Mark it as incomplete first if you need to modify it.");

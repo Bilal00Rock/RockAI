@@ -7,6 +7,10 @@ namespace RockAI.Domain.Users
 {
     public static class UserErrors
     {
+        public static readonly Error PasswordTooWeak = Error.Validation(
+                code: "User.PasswordTooWeak",
+                description: "Password too weak.");
+
         public static readonly Error ConversationWithIdNotAssigned = Error.Validation(
                 code: "User.NotConversationWithId",
                 description: "Conversation with this ID is not assigned to this user.");

@@ -1,4 +1,5 @@
 using ErrorOr;
+using RockAI.Application.Authentication;
 using RockAI.Application.Common.Interfaces;
 using RockAI.Domain.Conversations;
 using RockAI.Domain.Messages;
@@ -96,14 +97,14 @@ public sealed class MessageService : IMessageService
 
         var message = await _messagesRepository.GetByIdAsync(messageId, cancellationToken);
         if (message is null)
-            return Error.NotFound("Message.NotFound", "Message was not found.");
+            return MessageErrors.NotFound;
 
         var conversation = await _conversationsRepository.GetByIdAsync(
             message.ConversationId,
             userIdResult.Value,
             cancellationToken);
         if (conversation is null)
-            return Error.NotFound("Conversation.NotFound", "Conversation was not found.");
+            return ConversationErrors.NotFound;
 
         var updateResult = message.UpdateMessage(content, messageRole, status);
         if (updateResult.IsError)
@@ -127,14 +128,14 @@ public sealed class MessageService : IMessageService
             userIdResult.Value,
             cancellationToken);
         return conversation is null
-            ? Error.NotFound("Conversation.NotFound", "Conversation was not found.")
+            ? ConversationErrors.NotFound
             : conversation;
     }
 
     private ErrorOr<Guid> GetCurrentUserId()
     {
         return !_userSession.IsAuthenticated || !_userSession.UserId.HasValue || _userSession.UserId == Guid.Empty
-            ? Error.Unauthorized("Auth.NotAuthenticated", "The current user is not authenticated.")
+            ? AuthenticationErrors.NotAuthenticated
             : _userSession.UserId.Value;
     }
 

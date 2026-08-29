@@ -24,16 +24,12 @@ public class AuthenticationService : IAuthenticationService
     {
         if (string.IsNullOrWhiteSpace(email))
         {
-            return Error.Validation(
-                code: "Auth.EmailRequired",
-                description: "Email is required.");
+            return AuthenticationErrors.EmailRequired;
         }
 
         if (string.IsNullOrWhiteSpace(password))
         {
-            return Error.Validation(
-                code: "Auth.PasswordRequired",
-                description: "Password is required.");
+            return AuthenticationErrors.PasswordRequired;
         }
 
         var user = await _userRepository.GetByEmailAsync(
@@ -42,16 +38,12 @@ public class AuthenticationService : IAuthenticationService
 
         if (user is null)
         {
-            return Error.Unauthorized(
-                code: "Auth.InvalidCredentials",
-                description: "Invalid email or password.");
+            return AuthenticationErrors.InvalidCredentials;
         }
 
         if (!user.IsCorrectPasswordHash(password, _passwordHasher))
         {
-            return Error.Unauthorized(
-                code: "Auth.InvalidCredentials",
-                description: "Invalid email or password.");
+            return AuthenticationErrors.InvalidCredentials;
         }
 
         return new AuthenticatedUserResult(

@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 
 using ErrorOr;
+using RockAI.Domain.Users;
 using RockAI.Domain.Common.Interfaces;
 
 namespace RockAI.Infrastructure.Authentication.PasswordHasher;
@@ -12,7 +13,7 @@ public partial class PasswordHasher : IPasswordHasher
     public ErrorOr<string> HashPassword(string password)
     {
         return !PasswordRegex.IsMatch(password)
-            ? Error.Validation(description: "Password too weak")
+            ? UserErrors.PasswordTooWeak
             : BCrypt.Net.BCrypt.EnhancedHashPassword(password);
     }
 

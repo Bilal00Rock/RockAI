@@ -1,4 +1,5 @@
 using ErrorOr;
+using RockAI.Application.Authentication;
 using RockAI.Application.Common.Interfaces;
 using RockAI.Domain.Conversations;
 
@@ -120,14 +121,14 @@ public sealed class ConversationService : IConversationService
     {
         var conversation = await _conversationsRepository.GetByIdAsync(conversationId, userId, cancellationToken);
         return conversation is null
-            ? Error.NotFound("Conversation.NotFound", "Conversation was not found.")
+            ? ConversationErrors.NotFound
             : conversation;
     }
 
     private ErrorOr<Guid> GetCurrentUserId()
     {
         return !_userSession.IsAuthenticated || !_userSession.UserId.HasValue || _userSession.UserId == Guid.Empty
-            ? Error.Unauthorized("Auth.NotAuthenticated", "The current user is not authenticated.")
+            ? AuthenticationErrors.NotAuthenticated
             : _userSession.UserId.Value;
     }
 }

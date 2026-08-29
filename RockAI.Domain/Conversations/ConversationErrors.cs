@@ -4,6 +4,10 @@ namespace RockAI.Domain.Conversations;
 
 public static class ConversationErrors
 {
+    public static readonly Error NotFound = Error.NotFound(
+        code: "Conversation.NotFound",
+        description: "Conversation was not found.");
+
     public static readonly Error CannotUpdateCompletedConversation = Error.Validation(
         code: "Conversation.CannotUpdateCompletedConversation",
         description: "Cannot update a completed conversation. Mark it as incomplete first if you need to modify it.");
