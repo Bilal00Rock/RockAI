@@ -20,10 +20,10 @@ public class Message : Entity
         Guid conversationId,
         Guid? id = null,
         DateTime? createdAt = null,  
-        MessageStatus status = null ) 
+        MessageStatus? status = null)
             : base(id ?? Guid.NewGuid() )
     {
-        if (string.IsNullOrWhiteSpace(content))
+        if (string.IsNullOrWhiteSpace(content) && messageRole != MessageRole.Assistant)
             throw new ArgumentException(
                 "Message content cannot be empty.",
                 nameof(content));
@@ -50,15 +50,19 @@ public class Message : Entity
     
     public ErrorOr<Success> UpdateMessage(string content, MessageRole messageRole, MessageStatus status)
     {
-        if (string.IsNullOrWhiteSpace(content))
+        if (string.IsNullOrWhiteSpace(content) && messageRole != MessageRole.Assistant)
         {
             return MessageErrors.InvalidContent;
         }
         Content = content;
         MessageRole = messageRole;
         Status = status;
-        
-        
+        CompletedAt = status == MessageStatus.Completed ||
+            status == MessageStatus.Failed ||
+            status == MessageStatus.Cancelled
+            ? DateTime.UtcNow
+            : null;
+
         return Result.Success;
     }
 }

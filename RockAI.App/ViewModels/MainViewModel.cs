@@ -6,7 +6,9 @@ using RockAI.Domain.Conversations;
 using RockAI.Domain.Messages;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Windows.Input;
 
 namespace RockAI.App.ViewModels;
@@ -20,6 +22,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _messageText = string.Empty;
     private string _errorMessage = string.Empty;
     private bool _isBusy;
+    private bool _isGenerating;
+    private CancellationTokenSource? _generationCts;
     private int _selectionVersion;
     private Task _selectedConversationLoadTask = Task.CompletedTask;
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -42,6 +46,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _selectedConversation = value;
             OnPropertyChanged();
 
+            StopGeneration();
             ((Command)SendMessageCommand).ChangeCanExecute();
 
             var selectionVersion = ++_selectionVersion;
@@ -49,6 +54,24 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 LoadSelectedConversationAsync(value, selectionVersion);
         }
     }
+
+    public bool IsGenerating
+    {
+        get => _isGenerating;
+        private set
+        {
+            if (_isGenerating == value)
+                return;
+
+            _isGenerating = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsSendVisible));
+            ((Command)SendMessageCommand).ChangeCanExecute();
+            ((Command)StopGenerationCommand).ChangeCanExecute();
+        }
+    }
+
+    public bool IsSendVisible => !IsGenerating;
     public string MessageText
     {
         get => _messageText;
@@ -93,6 +116,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ICommand NewConversationCommand { get; }
     public ICommand SendMessageCommand { get; }
+    public ICommand StopGenerationCommand { get; }
     public ICommand LogoutCommand { get; }
 
     public MainViewModel(
@@ -108,7 +132,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         
 
         NewConversationCommand = new Command(async () => await CreateConversationAsync(), () => !IsBusy);
-        SendMessageCommand = new Command(async () => await SendMessageAsync(), () => !IsBusy && SelectedConversation is not null && !string.IsNullOrWhiteSpace(MessageText));
+        SendMessageCommand = new Command(async () => await SendMessageAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null && !string.IsNullOrWhiteSpace(MessageText));
+        StopGenerationCommand = new Command(StopGeneration, () => IsGenerating);
         LogoutCommand = new Command(async () => await LogoutAsync(), () => !IsBusy);
     }
     private async Task LogoutAsync()
@@ -226,7 +251,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             Messages.Clear();
             foreach (var message in result.Value)
-                Messages.Add(new MessageViewModel(message));
+                Messages.Add(new MessageViewModel(message, RetryMessageAsync));
 
             MessagesChanged?.Invoke();
 
@@ -239,30 +264,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task SendMessageAsync()
     {
-        if (SelectedConversation is null || string.IsNullOrWhiteSpace(MessageText) || IsBusy)
+        if (SelectedConversation is null || string.IsNullOrWhiteSpace(MessageText) || IsBusy || IsGenerating)
             return;
 
         IsBusy = true;
+        IsGenerating = true;
+        _generationCts?.Dispose();
+        _generationCts = new CancellationTokenSource();
+        var cancellationToken = _generationCts.Token;
         ErrorMessage = string.Empty;
+        var conversation = SelectedConversation;
+        var generationCts = _generationCts;
         try
         {
-            var conversation = SelectedConversation;
-            if (conversation is null)
-                return;
-
             await _selectedConversationLoadTask;
 
-            if (!ReferenceEquals(_selectedConversation, conversation))
+            if (!ReferenceEquals(_selectedConversation, conversation) || cancellationToken.IsCancellationRequested)
                 return;
 
-            var result = await _messageService.SendMessageAsync(conversation.Id, MessageText.Trim());
+            var result = await _messageService.SendMessageAsync(conversation.Id, MessageText.Trim(), cancellationToken);
             if (result.IsError)
             {
                 SetError(result.Errors);
                 return;
             }
 
-            Messages.Add(new MessageViewModel(result.Value.Message));
+            Messages.Add(new MessageViewModel(result.Value.Message, RetryMessageAsync));
 
             if(!string.IsNullOrWhiteSpace(result.Value.NewTitle))
             {
@@ -272,55 +299,199 @@ public sealed class MainViewModel : INotifyPropertyChanged
             MessagesChanged?.Invoke();
             MessageText = string.Empty;
 
-            //AI Response
-            var request = new AIChatRequest
+            var assistantResult = await _messageService.CreateAssistantMessageAsync(
+                conversation.Id,
+                status: MessageStatus.Streaming,
+                cancellationToken: cancellationToken);
+            if (assistantResult.IsError)
             {
-                Task = AITask.Chat,
-                Messages = Messages.Select(m => new AIMessage
-                {
-                    Role = m.Role switch
-                    {
-                        "User" => AIMessageRole.User,
-                        "Assistant" => AIMessageRole.Assistant,
-                        "System" => AIMessageRole.System,
-                        _ => AIMessageRole.User
-                    },
-                    Content = m.Content
-                }).ToList()
-            };
-            var assistantMessage = new MessageViewModel(AIMessageRole.Assistant);
+                SetError(assistantResult.Errors);
+                return;
+            }
+
+            var assistantMessage = new MessageViewModel(assistantResult.Value, RetryMessageAsync);
             Messages.Add(assistantMessage);
-
             MessagesChanged?.Invoke();
-            await Task.Run(async () =>
-            {
-                await foreach (var chunk in _aiService.GenerateStreamingAsync(request))
-                {
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                    {
-                        assistantMessage.Append(chunk);
-                        MessagesChanged?.Invoke();
-                    });
-                }
-            });
-            var assistantResult = await _messageService.CreateAssistantMessageAsync(conversation.Id, assistantMessage.Content);
 
-
-            //var conversationResult = await _conversationService.GetConversationAsync(conversation.Id);
-            //if (!conversationResult.IsError)
-            //{
-            //    _selectedConversation = conversationResult.Value;
-            //    OnPropertyChanged(nameof(SelectedConversation));
-            //}
+            await GenerateAssistantAsync(conversation, assistantMessage, BuildRequest(), cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            ErrorMessage = "Unable to send the message.";
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ex);
+#endif
         }
         finally
         {
-            IsBusy = false;
+            CompleteGeneration(generationCts);
         }
+    }
+
+    private async Task RetryMessageAsync(MessageViewModel assistantMessage)
+    {
+        if (!assistantMessage.CanRetry || IsGenerating || SelectedConversation?.Id != assistantMessage.ConversationId)
+            return;
+
+        IsBusy = true;
+        IsGenerating = true;
+        _generationCts?.Dispose();
+        _generationCts = new CancellationTokenSource();
+        var cancellationToken = _generationCts.Token;
+        var generationCts = _generationCts;
+        var conversation = SelectedConversation!;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            var updateResult = await _messageService.UpdateMessageAsync(
+                assistantMessage.Id,
+                string.Empty,
+                MessageRole.Assistant,
+                MessageStatus.Streaming,
+                cancellationToken);
+            if (updateResult.IsError)
+            {
+                SetError(updateResult.Errors);
+                return;
+            }
+
+            assistantMessage.ResetForRetry();
+            await GenerateAssistantAsync(
+                conversation,
+                assistantMessage,
+                BuildRequest(assistantMessage),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Unable to retry the response.";
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ex);
+#endif
+        }
+        finally
+        {
+            CompleteGeneration(generationCts);
+        }
+    }
+
+    private async Task GenerateAssistantAsync(
+        ConversationViewModel conversation,
+        MessageViewModel assistantMessage,
+        AIChatRequest request,
+        CancellationToken cancellationToken)
+    {
+        var pendingChunks = new StringBuilder();
+        var lastUiUpdate = Stopwatch.GetTimestamp();
+        var uiUpdateInterval = TimeSpan.FromMilliseconds(100);
+
+        async Task FlushPendingChunksAsync()
+        {
+            if (pendingChunks.Length == 0)
+                return;
+
+            var content = pendingChunks.ToString();
+            pendingChunks.Clear();
+            lastUiUpdate = Stopwatch.GetTimestamp();
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                assistantMessage.Append(content);
+                if (ReferenceEquals(_selectedConversation, conversation))
+                    MessagesChanged?.Invoke();
+            });
+        }
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                await foreach (var chunk in _aiService
+                    .GenerateStreamingAsync(request, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    pendingChunks.Append(chunk);
+                    if (Stopwatch.GetElapsedTime(lastUiUpdate) >= uiUpdateInterval)
+                        await FlushPendingChunksAsync();
+                }
+            }, cancellationToken);
+
+            await FlushPendingChunksAsync();
+
+            var status = cancellationToken.IsCancellationRequested
+                ? MessageStatus.Cancelled
+                : MessageStatus.Completed;
+            await PersistAssistantStateAsync(assistantMessage, status);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await FlushPendingChunksAsync();
+            await PersistAssistantStateAsync(assistantMessage, MessageStatus.Cancelled);
+        }
+        catch
+        {
+            await FlushPendingChunksAsync();
+            await PersistAssistantStateAsync(assistantMessage, MessageStatus.Failed);
+            throw;
+        }
+    }
+
+    private async Task PersistAssistantStateAsync(MessageViewModel assistantMessage, MessageStatus status)
+    {
+        var result = await _messageService.UpdateMessageAsync(
+            assistantMessage.Id,
+            assistantMessage.Content,
+            MessageRole.Assistant,
+            status,
+            CancellationToken.None);
+
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            assistantMessage.SetStatus(status);
+            if (ReferenceEquals(_selectedConversation, SelectedConversation))
+                MessagesChanged?.Invoke();
+        });
+
+        if (result.IsError)
+            SetError(result.Errors);
+    }
+
+    private AIChatRequest BuildRequest(MessageViewModel? excludedMessage = null) => new()
+    {
+        Task = AITask.Chat,
+        Messages = Messages
+            .Where(message => message != excludedMessage)
+            .Select(message => new AIMessage
+            {
+                Role = message.Role switch
+                {
+                    "User" => AIMessageRole.User,
+                    "Assistant" => AIMessageRole.Assistant,
+                    "System" => AIMessageRole.System,
+                    _ => AIMessageRole.User
+                },
+                Content = message.Content
+            }).ToList()
+    };
+
+    private void StopGeneration() => _generationCts?.Cancel();
+
+    private void CompleteGeneration(CancellationTokenSource generationCts)
+    {
+        if (!ReferenceEquals(_generationCts, generationCts))
+            return;
+
+        _generationCts = null;
+        generationCts.Dispose();
+        IsGenerating = false;
+        IsBusy = false;
     }
 
     private void SetError(IEnumerable<ErrorOr.Error> errors)

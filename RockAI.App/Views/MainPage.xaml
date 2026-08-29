@@ -39,7 +39,17 @@
 
         <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*,Auto,Auto" RowSpacing="10">
             <Label Text="{Binding SelectedConversation.Title, TargetNullValue='Select a conversation'}" FontSize="22" FontAttributes="Bold" />
-            <CollectionView x:Name="MessagesCollectionView" Grid.Row="1" ItemsSource="{Binding Messages}" SelectionMode="None">
+            <!--<CollectionView x:Name="MessagesCollectionView" Grid.Row="1" ItemsSource="{Binding Messages}" SelectionMode="None" ItemSizingStrategy="MeasureAllItems"  VerticalOptions="Fill">-->
+            <CollectionView
+    x:Name="MessagesCollectionView"
+    Grid.Row="1"
+    ItemsSource="{Binding Messages}"
+    SelectionMode="None"
+    ItemSizingStrategy="MeasureAllItems"
+    VerticalOptions="Fill"
+    VerticalScrollBarVisibility="Always"
+                
+    ItemsUpdatingScrollMode="KeepLastItemInView"> 
                 <CollectionView.ItemsLayout>
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="0.5" />
                 </CollectionView.ItemsLayout>
@@ -58,8 +68,12 @@
                                     </DataTrigger>
                                 </Border.Triggers>
                             <VerticalStackLayout Spacing="4">
-                                <Label Text="{Binding Role}" FontSize="11" FontAttributes="Bold" Opacity="0.7" />
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="{Binding Role}" FontSize="11" FontAttributes="Bold" Opacity="0.7" />
+                                    <Label Text="{Binding StatusText}" FontSize="11" Opacity="0.7" />
+                                </HorizontalStackLayout>
                                 <Label Text="{Binding Content}" LineBreakMode="WordWrap" />
+                                <Button Text="Retry" Command="{Binding RetryCommand}" IsVisible="{Binding CanRetry}" Padding="8,2" HorizontalOptions="Start" />
                             </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
@@ -68,7 +82,8 @@
             <Label Grid.Row="2" Text="{Binding ErrorMessage}" TextColor="Red" />
             <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Editor Text="{Binding MessageText}" Placeholder="Type a message..." AutoSize="TextChanges" MaximumHeightRequest="100" />
-                <Button Grid.Column="1" Text="Send" Command="{Binding SendMessageCommand}" VerticalOptions="End" />
+                <Button Grid.Column="1" Text="Send" Command="{Binding SendMessageCommand}" IsVisible="{Binding IsSendVisible}" VerticalOptions="End" />
+                <Button Grid.Column="1" Text="Stop" Command="{Binding StopGenerationCommand}" IsVisible="{Binding IsGenerating}" VerticalOptions="End" />
             </Grid>
         </Grid>
     </Grid>

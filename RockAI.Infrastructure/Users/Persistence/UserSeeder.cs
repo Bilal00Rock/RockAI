@@ -13,7 +13,7 @@ public static class UserSeeder
         if (dbContext.Users.Any())
             return;
 
-        var passwordResult = passwordHasher.HashPassword("Rock123!");
+        var passwordResult = passwordHasher.HashPassword("Password123!");
 
         if (passwordResult.IsError)
             throw new Exception(

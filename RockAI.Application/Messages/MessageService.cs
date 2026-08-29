@@ -116,21 +116,22 @@ public sealed class MessageService : IMessageService
         await _unitOfWork.CommitChangesAsync();
         return message;
     }
-    public async Task<ErrorOr<Message>> CreateAssistantMessageAsync(Guid conversationId, string content, CancellationToken cancellationToken = default)
+    public async Task<ErrorOr<Message>> CreateAssistantMessageAsync(
+        Guid conversationId,
+        string content = "",
+        CancellationToken cancellationToken = default,
+        MessageStatus? status = null)
     {
         var conversationResult = await GetOwnedConversationAsync(conversationId, cancellationToken);
 
         if (conversationResult.IsError)
             return conversationResult.Errors;
 
-        if (string.IsNullOrWhiteSpace(content))
-            return MessageErrors.InvalidContent;
-
         var message = new Message(
             MessageRole.Assistant,
             content,
             conversationId,
-            status: MessageStatus.Completed);
+            status: status ?? MessageStatus.Streaming);
 
         await _messagesRepository.AddMessageAsync(message, cancellationToken);
 

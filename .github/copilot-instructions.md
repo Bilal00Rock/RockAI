@@ -5,3 +5,4 @@
 
 ## General Guidelines
 - Use the general Application-layer interface name **IAIEndpoints** because it is intended to support endpoint definitions for multiple AI providers, not only Ollama.
+- For MAUI chat streaming implementation, use `await Task.Run(async () => { ... })` around AI stream generation to keep the UI responsive; retain explicit MainThread dispatch for bound UI updates.

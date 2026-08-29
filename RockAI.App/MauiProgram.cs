@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using CommunityToolkit.Maui;
 using RockAI.App.Services.Authentication;
 using RockAI.App.ViewModels;
 using RockAI.App.Views;
@@ -8,6 +9,8 @@ using RockAI.Application.Common.Interfaces;
 using RockAI.Application.Conversations;
 using RockAI.Application.Messages;
 using RockAI.Infrastructure;
+using Woka;
+
 #if WINDOWS
 using RockAI.Platform.Windows.Services.OllamaAI;
 using RockAI.Platform.Windows.Services;
@@ -21,6 +24,8 @@ namespace RockAI.App
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseMauiCommunityToolkit()
+                .ConfigureWorkarounds()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -34,7 +39,6 @@ namespace RockAI.App
             var databasePath = Path.Combine(
     FileSystem.AppDataDirectory,
     "RockAI.db");
-
             builder.Services.AddInfrastructure(databasePath);
             builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
             builder.Services.AddScoped<IConversationService, ConversationService>();
