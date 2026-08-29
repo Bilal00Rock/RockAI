@@ -12,25 +12,27 @@ public sealed class OllamaAIService : IAIService
 {
     private readonly HttpClient _httpClient;
     private readonly IAIModelResolver _modelResolver;
+    private readonly IAIEndpoints _endpoints;
 
 
-    public OllamaAIService(IAIModelResolver modelResolver)
+    public OllamaAIService(IAIModelResolver modelResolver, IAIEndpoints endpoints)
     {
         _modelResolver = modelResolver;
+        _endpoints = endpoints;
 
         var handler = new HttpClientHandler
         {
-            UseProxy = false
+            UseProxy = _endpoints.UseProxy
         };
         _httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri("http://127.0.0.1:11434/"),
+            BaseAddress = _endpoints.BaseAddress,
             Timeout = TimeSpan.FromMinutes(5)
         };
     }
     public async Task<string> TestConnectionAsync()
     {
-        using var response = await _httpClient.GetAsync("api/tags");
+        using var response = await _httpClient.GetAsync(_endpoints.Tags);
 
         var body = await response.Content.ReadAsStringAsync();
 
@@ -63,7 +65,7 @@ public sealed class OllamaAIService : IAIService
         {
 
             using var response = await _httpClient.PostAsJsonAsync(
-                "api/generate",
+                _endpoints.Generate,
                 ollamaRequest,
                 cancellationToken);
 
@@ -133,7 +135,7 @@ public sealed class OllamaAIService : IAIService
 
         using var requestMessage = new HttpRequestMessage(
             HttpMethod.Post,
-            "api/chat")
+            _endpoints.Chat)
         {
             Content = JsonContent.Create(ollamaRequest)
         };

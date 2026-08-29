@@ -10,7 +10,7 @@ public sealed class OllamaAIServiceTests
     [Fact]
     public async Task GenerateAsync_WhenPromptIsBlank_ReturnsPromptEmptyWithoutNetworkCall()
     {
-        var service = new OllamaAIService(new AIModelResolver());
+        var service = new OllamaAIService(new AIModelResolver(), new OllamaEndpoints());
 
         var result = await service.GenerateAsync(new AIRequest
         {

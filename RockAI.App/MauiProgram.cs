@@ -51,6 +51,7 @@ namespace RockAI.App
 
 #if WINDOWS
             builder.Services.AddSingleton<IAIModelResolver, AIModelResolver>();
+            builder.Services.AddSingleton<IAIEndpoints, OllamaEndpoints>();
             builder.Services.AddSingleton<IAIService, OllamaAIService>();
 #endif
 
