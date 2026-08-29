@@ -10,5 +10,11 @@
     <Project Path="RockAI.Migrations/RockAI.Migrations.csproj" />
     <Project Path="RockAI.Platform.Windows/RockAI.Platform.Windows.csproj" />
   </Folder>
-  <Folder Name="/test/" />
+  <Folder Name="/test/">
+    <Project Path="test/RockAI.Common.Tests/RockAI.Common.Tests.csproj" />
+    <Project Path="test/RockAI.Domain.Tests/RockAI.Domain.Tests.csproj" />
+    <Project Path="test/RockAI.Application.Tests/RockAI.Application.Tests.csproj" />
+    <Project Path="test/RockAI.Infrastructure.Tests/RockAI.Infrastructure.Tests.csproj" />
+    <Project Path="test/RockAI.Platform.Windows.Tests/RockAI.Platform.Windows.Tests.csproj" />
+  </Folder>
 </Solution>
