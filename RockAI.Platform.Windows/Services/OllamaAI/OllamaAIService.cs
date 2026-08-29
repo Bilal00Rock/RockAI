@@ -63,7 +63,6 @@ public sealed class OllamaAIService : IAIService
 
         try
         {
-
             using var response = await _httpClient.PostAsJsonAsync(
                 _endpoints.Generate,
                 ollamaRequest,

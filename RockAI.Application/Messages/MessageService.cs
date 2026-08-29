@@ -25,7 +25,7 @@ public sealed class MessageService : IMessageService
         _userSession = userSession;
     }
 
-    public async Task<ErrorOr<Message>> SendMessageAsync(
+    public async Task<ErrorOr<SendMessageResult>> SendMessageAsync(
         Guid conversationId,
         string content,
         CancellationToken cancellationToken = default)
@@ -52,12 +52,12 @@ public sealed class MessageService : IMessageService
         }
 
         await _messagesRepository.AddMessageAsync(message, cancellationToken);
-
+        string? newTitle = null;
         if (existingMessages.Count == 0)
         {
-            var title = CreateTitle(content);
+            newTitle = CreateTitle(content);
             var updateResult = conversationResult.Value.UpdateConversation(
-                title,
+                newTitle,
                 conversationResult.Value.ConversationType,
                 conversationResult.Value.IsCompleted);
 
@@ -70,7 +70,9 @@ public sealed class MessageService : IMessageService
         }
 
         await _unitOfWork.CommitChangesAsync();
-        return message;
+        return new SendMessageResult(
+        message,
+        newTitle);
     }
 
     public async Task<ErrorOr<List<Message>>> GetMessagesAsync(
@@ -112,6 +114,28 @@ public sealed class MessageService : IMessageService
 
         await _messagesRepository.UpdateAsync(message, cancellationToken);
         await _unitOfWork.CommitChangesAsync();
+        return message;
+    }
+    public async Task<ErrorOr<Message>> CreateAssistantMessageAsync(Guid conversationId, string content, CancellationToken cancellationToken = default)
+    {
+        var conversationResult = await GetOwnedConversationAsync(conversationId, cancellationToken);
+
+        if (conversationResult.IsError)
+            return conversationResult.Errors;
+
+        if (string.IsNullOrWhiteSpace(content))
+            return MessageErrors.InvalidContent;
+
+        var message = new Message(
+            MessageRole.Assistant,
+            content,
+            conversationId,
+            status: MessageStatus.Completed);
+
+        await _messagesRepository.AddMessageAsync(message, cancellationToken);
+
+        await _unitOfWork.CommitChangesAsync();
+
         return message;
     }
 

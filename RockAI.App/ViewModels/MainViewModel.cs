@@ -16,37 +16,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly IConversationService _conversationService;
     private readonly IMessageService _messageService;
     private readonly IUserSession _userSession;
-    private Conversation? _selectedConversation;
+    private ConversationViewModel? _selectedConversation;
     private string _messageText = string.Empty;
     private string _errorMessage = string.Empty;
     private bool _isBusy;
     private int _selectionVersion;
     private Task _selectedConversationLoadTask = Task.CompletedTask;
-
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ObservableCollection<Conversation> Conversations { get; } = [];
-    public ObservableCollection<Message> Messages { get; } = [];
-
+    public ObservableCollection<ConversationViewModel> Conversations { get; } = [];
+    public ObservableCollection<MessageViewModel> Messages { get; } = [];
+    public event Action? MessagesChanged;
     public string WelcomeMessage => $"Welcome, {_userSession.FullName}!";
     public Guid? UserId => _userSession.UserId;
     private readonly IAIService _aiService;
 
-    //public Conversation? SelectedConversation
-    //{
-    //    get => _selectedConversation;
-    //    set
-    //    {
-    //        if (_selectedConversation == value)
-    //            return;
-
-    //        _selectedConversation = value;
-    //        OnPropertyChanged();
-    //        var selectionVersion = ++_selectionVersion;
-    //        _selectedConversationLoadTask = LoadSelectedConversationAsync(value, selectionVersion);
-    //    }
-    //}
-    public Conversation? SelectedConversation
+    public ConversationViewModel? SelectedConversation
     {
         get => _selectedConversation;
         set
@@ -124,56 +109,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         NewConversationCommand = new Command(async () => await CreateConversationAsync(), () => !IsBusy);
         SendMessageCommand = new Command(async () => await SendMessageAsync(), () => !IsBusy && SelectedConversation is not null && !string.IsNullOrWhiteSpace(MessageText));
-        LogoutCommand = new Command(async () => await TestAIAsync(), () => !IsBusy);
-    }
-    private async Task TestAIGenAsync()
-    {
-        var result = await _aiService.GenerateAsync(
-            new AIRequest
-            {
-                Model = "gemma3:4b",
-                Prompt = "Say hello in one sentence."
-            });
-
-        if (result.IsError)
-        {
-            ErrorMessage = result.FirstError.Description;
-            return;
-        }
-
-        ErrorMessage = result.Value;
-    }
-    public async Task TestAIAsync()
-    {
-        var request = new AIChatRequest
-        {
-            Task = AITask.Chat,
-            Messages =
-            [
-                new AIMessage
-            {
-                Role = AIMessageRole.System,
-                Content = "You are RockAI, a helpful AI assistant."
-            },
-            new AIMessage
-            {
-                Role = AIMessageRole.User,
-                Content = "Tell me a short story about a robot."
-            }
-            ]
-        };
-
-        var result = string.Empty;
-
-        await foreach (var chunk in _aiService.GenerateStreamingAsync(request))
-        {
-            result += chunk;
-
-            System.Diagnostics.Debug.WriteLine(chunk);
-        }
-
-        System.Diagnostics.Debug.WriteLine(
-            $"COMPLETE: {result}");
+        LogoutCommand = new Command(async () => await LogoutAsync(), () => !IsBusy);
     }
     private async Task LogoutAsync()
     {
@@ -214,7 +150,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             Conversations.Clear();
             foreach (var conversation in result.Value)
-                Conversations.Add(conversation);
+                Conversations.Add(new ConversationViewModel(conversation));
 
             if (Conversations.Count == 0)
             {
@@ -245,9 +181,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 SetError(result.Errors);
                 return;
             }
+            var conversationViewModel = new ConversationViewModel(result.Value);
 
-            Conversations.Insert(0, result.Value);
-            SelectedConversation = result.Value;
+            Conversations.Insert(0, conversationViewModel);
+            SelectedConversation = conversationViewModel;
         }
         catch (Exception ex)
         {
@@ -260,7 +197,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     private async Task LoadSelectedConversationAsync(
-        Conversation? conversation,
+        ConversationViewModel? conversation,
         int selectionVersion)
     {
         if (conversation is null)
@@ -289,7 +226,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             Messages.Clear();
             foreach (var message in result.Value)
-                Messages.Add(message);
+                Messages.Add(new MessageViewModel(message));
+
+            MessagesChanged?.Invoke();
+
         }
         catch (Exception ex)
         {
@@ -322,21 +262,56 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            Messages.Add(result.Value);
+            Messages.Add(new MessageViewModel(result.Value.Message));
+
+            if(!string.IsNullOrWhiteSpace(result.Value.NewTitle))
+            {
+                conversation.Title = result.Value.NewTitle;
+            }
+
+            MessagesChanged?.Invoke();
             MessageText = string.Empty;
 
-            var conversationResult = await _conversationService.GetConversationAsync(conversation.Id);
-            if (!conversationResult.IsError)
+            //AI Response
+            var request = new AIChatRequest
             {
-                // Replacing the selected item can reset CollectionView.SelectedItem,
-                // which starts another load and clears the message just added above.
-                // var index = Conversations.IndexOf(conversation);
-                // if (index >= 0)
-                //     Conversations[index] = conversationResult.Value;
+                Task = AITask.Chat,
+                Messages = Messages.Select(m => new AIMessage
+                {
+                    Role = m.Role switch
+                    {
+                        "User" => AIMessageRole.User,
+                        "Assistant" => AIMessageRole.Assistant,
+                        "System" => AIMessageRole.System,
+                        _ => AIMessageRole.User
+                    },
+                    Content = m.Content
+                }).ToList()
+            };
+            var assistantMessage = new MessageViewModel(AIMessageRole.Assistant);
+            Messages.Add(assistantMessage);
 
-                _selectedConversation = conversationResult.Value;
-                OnPropertyChanged(nameof(SelectedConversation));
-            }
+            MessagesChanged?.Invoke();
+            await Task.Run(async () =>
+            {
+                await foreach (var chunk in _aiService.GenerateStreamingAsync(request))
+                {
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        assistantMessage.Append(chunk);
+                        MessagesChanged?.Invoke();
+                    });
+                }
+            });
+            var assistantResult = await _messageService.CreateAssistantMessageAsync(conversation.Id, assistantMessage.Content);
+
+
+            //var conversationResult = await _conversationService.GetConversationAsync(conversation.Id);
+            //if (!conversationResult.IsError)
+            //{
+            //    _selectedConversation = conversationResult.Value;
+            //    OnPropertyChanged(nameof(SelectedConversation));
+            //}
         }
         catch (Exception ex)
         {

@@ -7,7 +7,7 @@ namespace RockAI.Domain.Conversations;
 
 public class Conversation : Entity
 {
-    public string Title { get; private set; }
+    public string Title { get; set; }
     public ConversationType ConversationType { get; private set; }
     public Guid UserId { get; }
     public bool IsCompleted { get; private set; }
