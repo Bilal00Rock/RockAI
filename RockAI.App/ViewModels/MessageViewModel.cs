@@ -1,5 +1,4 @@
-using Microsoft.Maui.Controls.PlatformConfiguration;
-using RockAI.Application.Common.Enums;
+using Microsoft.Maui.Controls;
 using RockAI.Domain.Messages;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -57,9 +56,11 @@ public sealed class MessageViewModel : INotifyPropertyChanged
 
     public bool CanRetry => _retryAction is not null &&
         (Status == MessageStatus.Failed || Status == MessageStatus.Cancelled);
+
     /// <summary>User messages only, not while streaming, and actions not disabled globally.</summary>
     public bool CanEdit => _editAction is not null &&
         _actionsEnabled &&
+        MessageRole == MessageRole.User &&
         Status != MessageStatus.Streaming;
 
     public bool CanDelete => _deleteAction is not null &&
@@ -69,16 +70,23 @@ public sealed class MessageViewModel : INotifyPropertyChanged
     public ICommand RetryCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand DeleteCommand { get; }
-    public MessageViewModel(Message message, Func<MessageViewModel, Task>? retryAction = null, Func<MessageViewModel, Task>? editAction = null, Func<MessageViewModel, Task>? deleteAction = null)
+
+    public MessageViewModel(
+        Message message,
+        Func<MessageViewModel, Task>? retryAction = null,
+        Func<MessageViewModel, Task>? editAction = null,
+        Func<MessageViewModel, Task>? deleteAction = null)
     {
         Id = message.Id;
         ConversationId = message.ConversationId;
+        MessageRole = message.MessageRole;
         Role = message.MessageRole.Name;
         _content = message.Content;
         _status = message.Status;
         _retryAction = retryAction;
         _editAction = editAction;
         _deleteAction = deleteAction;
+
         RetryCommand = new Command(async () =>
         {
             if (CanRetry)
@@ -105,12 +113,15 @@ public sealed class MessageViewModel : INotifyPropertyChanged
         Content = string.Empty;
         SetStatus(MessageStatus.Streaming);
     }
+
     public void SetContent(string content) => Content = content;
+
     public void SetStatus(MessageStatus status)
     {
         Status = status;
         ((Command)RetryCommand).ChangeCanExecute();
     }
+
     public void SetActionsEnabled(bool enabled)
     {
         if (_actionsEnabled == enabled)
