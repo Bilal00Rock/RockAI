@@ -9,7 +9,6 @@
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="280,*" Padding="16" RowSpacing="12" ColumnSpacing="16">
         <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-            <!--<Label Text="RockAI" FontSize="26" FontAttributes="Bold" />-->
             <Label  Text="{Binding WelcomeMessage}" VerticalOptions="Center" />
             <Button Grid.Column="2" Text="Log out" Command="{Binding LogoutCommand}" />
         </Grid>
@@ -43,7 +42,6 @@
 
         <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*,Auto,Auto" RowSpacing="10">
             <Label Text="{Binding SelectedConversation.Title, TargetNullValue='Select a conversation'}" FontSize="22" FontAttributes="Bold" />
-            <!--<CollectionView x:Name="MessagesCollectionView" Grid.Row="1" ItemsSource="{Binding Messages}" SelectionMode="None" ItemSizingStrategy="MeasureAllItems"  VerticalOptions="Fill">-->
             <CollectionView
     x:Name="MessagesCollectionView"
     Grid.Row="1"
@@ -52,7 +50,6 @@
     ItemSizingStrategy="MeasureAllItems"
     VerticalOptions="Fill"
     VerticalScrollBarVisibility="Always"
-                
     ItemsUpdatingScrollMode="KeepLastItemInView">
                 <CollectionView.ItemsLayout>
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="0.5" />
