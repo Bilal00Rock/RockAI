@@ -26,6 +26,8 @@ public sealed class AuthenticationServiceTests
         result.IsError.Should().BeFalse();
         result.Value.UserId.Should().Be(user.Id);
         result.Value.Email.Should().Be(user.Email);
+        result.Value.FirstName.Should().Be(user.FirstName);
+        result.Value.LastName.Should().Be(user.LastName);
     }
 
     [Fact]
@@ -34,12 +36,28 @@ public sealed class AuthenticationServiceTests
         var users = Substitute.For<IUsersRepository>();
         var hasher = Substitute.For<IPasswordHasher>();
         users.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<RockAI.Domain.Users.User?>(null));
+            .Returns(Task.FromResult<User?>(null));
         var service = new AuthenticationService(users, hasher);
 
         var result = await service.LoginAsync("missing@example.com", "password");
 
         result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(AuthenticationErrors.InvalidCredentials);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordIsWrong_ReturnsInvalidCredentials()
+    {
+        var users = Substitute.For<IUsersRepository>();
+        var hasher = Substitute.For<IPasswordHasher>();
+        var user = new UserBuilder().WithEmail("ada@example.com").Build();
+        users.GetByEmailAsync("ada@example.com", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<User?>(user));
+        hasher.IsCorrectPassword(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        var service = new AuthenticationService(users, hasher);
+
+        var result = await service.LoginAsync("ada@example.com", "wrong");
+
         result.FirstError.Should().Be(AuthenticationErrors.InvalidCredentials);
     }
 
@@ -53,6 +71,19 @@ public sealed class AuthenticationServiceTests
         var result = await service.LoginAsync(" ", "password");
 
         result.FirstError.Should().Be(AuthenticationErrors.EmailRequired);
+        await users.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenPasswordIsBlank_ReturnsPasswordRequired()
+    {
+        var users = Substitute.For<IUsersRepository>();
+        var hasher = Substitute.For<IPasswordHasher>();
+        var service = new AuthenticationService(users, hasher);
+
+        var result = await service.LoginAsync("ada@example.com", "  ");
+
+        result.FirstError.Should().Be(AuthenticationErrors.PasswordRequired);
         await users.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

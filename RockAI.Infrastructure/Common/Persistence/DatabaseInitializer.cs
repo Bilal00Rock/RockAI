@@ -43,8 +43,8 @@ public class DatabaseInitializer
             firstName: "Rock",
             lastName: "Admin",
             email: "rock@test.com",
-    passwordHash: hashResult.Value
-);
+            passwordHash: hashResult.Value
+            );
             await _usersRepository.AddUserAsync(user);
             await _unitOfWork.CommitChangesAsync();
         }

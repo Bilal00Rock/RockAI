@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--<TargetFramework>net10.0</TargetFramework>-->
+	  <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+
+	  <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsTestProject>true</IsTestProject>
+    <!-- MessageViewModel depends on Microsoft.Maui.Controls.Command.
+         This project is intended to be built on a machine with the MAUI workload.
+         If restore fails on pure Linux CI without MAUI, exclude this project from CI. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" Version="8.6.0" />
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RockAI.Common.Tests\RockAI.Common.Tests.csproj" />
+    <ProjectReference Include="..\..\RockAI.Application\RockAI.Application.csproj" />
+    <ProjectReference Include="..\..\RockAI.Domain\RockAI.Domain.csproj" />
+    <!-- Direct reference to App for ViewModels. Requires MAUI SDK. -->
+    <ProjectReference Include="..\..\RockAI.App\RockAI.App.csproj" />
+  </ItemGroup>
+
+</Project>

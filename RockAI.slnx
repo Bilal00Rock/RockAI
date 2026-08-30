@@ -16,5 +16,6 @@
     <Project Path="test/RockAI.Application.Tests/RockAI.Application.Tests.csproj" />
     <Project Path="test/RockAI.Infrastructure.Tests/RockAI.Infrastructure.Tests.csproj" />
     <Project Path="test/RockAI.Platform.Windows.Tests/RockAI.Platform.Windows.Tests.csproj" />
+    <Project Path="test/RockAI.App.Tests/RockAI.App.Tests.csproj" />
   </Folder>
 </Solution>
