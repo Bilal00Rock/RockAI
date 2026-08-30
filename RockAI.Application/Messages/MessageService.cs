@@ -139,7 +139,64 @@ public sealed class MessageService : IMessageService
 
         return message;
     }
+    public async Task<ErrorOr<Message>> EditMessageContentAsync(Guid messageId, string content, CancellationToken cancellationToken = default)
+    {
+        var userIdResult = GetCurrentUserId();
+        if (userIdResult.IsError)
+            return userIdResult.Errors;
 
+        if (string.IsNullOrWhiteSpace(content))
+            return MessageErrors.InvalidContent;
+
+        var message = await _messagesRepository.GetByIdAsync(messageId, cancellationToken);
+        if (message is null)
+            return MessageErrors.NotFound;
+
+        var conversation = await _conversationsRepository.GetByIdAsync(
+            message.ConversationId,
+            userIdResult.Value,
+            cancellationToken);
+        if (conversation is null)
+            return ConversationErrors.NotFound;
+
+        if (message.Status == MessageStatus.Streaming)
+            return MessageErrors.CannotModifyWhileStreaming;
+
+        var updateResult = message.UpdateMessage(content.Trim(), message.MessageRole, message.Status);
+        if (updateResult.IsError)
+            return updateResult.Errors;
+
+        await _messagesRepository.UpdateAsync(message, cancellationToken);
+        await _unitOfWork.CommitChangesAsync();
+        return message;
+    }
+
+    public async Task<ErrorOr<Success>> DeleteMessageAsync(
+        Guid messageId,
+        CancellationToken cancellationToken = default)
+    {
+        var userIdResult = GetCurrentUserId();
+        if (userIdResult.IsError)
+            return userIdResult.Errors;
+
+        var message = await _messagesRepository.GetByIdAsync(messageId, cancellationToken);
+        if (message is null)
+            return MessageErrors.NotFound;
+
+        var conversation = await _conversationsRepository.GetByIdAsync(
+            message.ConversationId,
+            userIdResult.Value,
+            cancellationToken);
+        if (conversation is null)
+            return ConversationErrors.NotFound;
+
+        if (message.Status == MessageStatus.Streaming)
+            return MessageErrors.CannotModifyWhileStreaming;
+
+        await _messagesRepository.DeleteAsync(message, cancellationToken);
+        await _unitOfWork.CommitChangesAsync();
+        return Result.Success;
+    }
     private async Task<ErrorOr<Conversation>> GetOwnedConversationAsync(
         Guid conversationId,
         CancellationToken cancellationToken)

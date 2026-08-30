@@ -24,4 +24,8 @@ public static class MessageErrors
     public static readonly Error InvalidContent = Error.Validation(
         code: "Message.InvalidContent",
         description: "Message content cannot be empty or exceed maximum length.");
+
+    public static readonly Error CannotModifyWhileStreaming = Error.Validation(
+        code: "Message.CannotModifyWhileStreaming",
+        description: "Cannot edit or delete a message while it is still streaming.");
 }

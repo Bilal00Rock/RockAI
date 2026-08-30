@@ -14,4 +14,13 @@ public interface IMessageService
         string content = "",
         CancellationToken cancellationToken = default,
         MessageStatus? status = null);
+
+    Task<ErrorOr<Message>> EditMessageContentAsync(
+        Guid messageId,
+        string content,
+        CancellationToken cancellationToken = default);
+
+    Task<ErrorOr<Success>> DeleteMessageAsync(
+        Guid messageId,
+        CancellationToken cancellationToken = default);
 }

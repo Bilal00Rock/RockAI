@@ -77,6 +77,8 @@
                                 </HorizontalStackLayout>
                                 <Label Text="{Binding Content}" LineBreakMode="WordWrap" />
                                 <Button Text="Retry" Command="{Binding RetryCommand}" IsVisible="{Binding CanRetry}" Padding="8,2" HorizontalOptions="Start" />
+                                <Button Text="Edit" Command="{Binding EditCommand}" IsVisible="{Binding CanEdit}" Padding="8,2" HorizontalOptions="Start" />
+                                <Button Text="Delete" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" Padding="8,2" HorizontalOptions="Start" />
                             </VerticalStackLayout>
                         </Border>
                     </DataTemplate>

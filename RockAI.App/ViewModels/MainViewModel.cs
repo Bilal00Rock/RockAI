@@ -70,6 +70,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ((Command)SendMessageCommand).ChangeCanExecute();
             ((Command)StopGenerationCommand).ChangeCanExecute();
             ((Command)DeleteConversationCommand).ChangeCanExecute();
+            UpdateMessageActionsEnabled();
         }
     }
 
@@ -115,6 +116,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ((Command)SendMessageCommand).ChangeCanExecute();
             ((Command)DeleteConversationCommand).ChangeCanExecute();
             ((Command)LogoutCommand).ChangeCanExecute();
+            UpdateMessageActionsEnabled();
         }
     }
 
@@ -227,6 +229,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    [Obsolete]
     private async Task DeleteConversationAsync()
     {
         if (SelectedConversation is null || IsBusy || IsGenerating)
@@ -323,7 +326,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             Messages.Clear();
             foreach (var message in result.Value)
-                Messages.Add(new MessageViewModel(message, RetryMessageAsync));
+                Messages.Add(CreateMessageViewModel(message));// new MessageViewModel(message, RetryMessageAsync));
 
             MessagesChanged?.Invoke();
 
@@ -361,7 +364,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            Messages.Add(new MessageViewModel(result.Value.Message, RetryMessageAsync));
+            Messages.Add(CreateMessageViewModel(result.Value.Message));
 
             if (!string.IsNullOrWhiteSpace(result.Value.NewTitle))
             {
@@ -381,7 +384,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            var assistantMessage = new MessageViewModel(assistantResult.Value, RetryMessageAsync);
+            var assistantMessage = CreateMessageViewModel(result.Value.Message);
             Messages.Add(assistantMessage);
             MessagesChanged?.Invoke();
 
@@ -402,6 +405,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             CompleteGeneration(generationCts);
         }
     }
+    private MessageViewModel CreateMessageViewModel(RockAI.Domain.Messages.Message message) =>
+     new(message, RetryMessageAsync, EditMessageAsync, DeleteMessageAsync);
 
     private async Task RetryMessageAsync(MessageViewModel assistantMessage)
     {
@@ -565,7 +570,129 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IsGenerating = false;
         IsBusy = false;
     }
+    private void UpdateMessageActionsEnabled()
+    {
+        var enabled = !IsGenerating && !IsBusy;
+        foreach (var message in Messages)
+            message.SetActionsEnabled(enabled);
+    }
 
+    private async Task EditMessageAsync(MessageViewModel message)
+    {
+        if (IsBusy || IsGenerating)
+            return;
+
+        if (SelectedConversation?.Id != message.ConversationId)
+            return;
+
+        string? newContent;
+        try
+        {
+            newContent = await Shell.Current.DisplayPromptAsync(
+                "Edit message",
+                "Update the message content:",
+                accept: "Save",
+                cancel: "Cancel",
+                placeholder: "Message",
+                maxLength: 4000,
+                keyboard: Keyboard.Text,
+                initialValue: message.Content);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return;
+        }
+
+        if (newContent is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(newContent))
+        {
+            ErrorMessage = "Message content cannot be empty.";
+            return;
+        }
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var result = await _messageService.EditMessageContentAsync(message.Id, newContent.Trim());
+            if (result.IsError)
+            {
+                SetError(result.Errors);
+                return;
+            }
+
+            message.SetContent(result.Value.Content);
+            MessagesChanged?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Unable to edit the message.";
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ex);
+#endif
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [Obsolete]
+    private async Task DeleteMessageAsync(MessageViewModel message)
+    {
+        if (IsBusy || IsGenerating)
+            return;
+
+        if (SelectedConversation?.Id != message.ConversationId)
+            return;
+
+        bool confirmed;
+        try
+        {
+            confirmed = await Shell.Current.DisplayAlert(
+                "Delete message?",
+                "This will permanently delete this message.",
+                "Delete",
+                "Cancel");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return;
+        }
+
+        if (!confirmed)
+            return;
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var result = await _messageService.DeleteMessageAsync(message.Id);
+            if (result.IsError)
+            {
+                SetError(result.Errors);
+                return;
+            }
+
+            Messages.Remove(message);
+            MessagesChanged?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Unable to delete the message.";
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ex);
+#endif
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
     private void SetError(IEnumerable<ErrorOr.Error> errors)
     {
         ErrorMessage = errors.FirstOrDefault().Description ?? "The operation failed.";
