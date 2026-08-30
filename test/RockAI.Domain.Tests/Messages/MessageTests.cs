@@ -15,12 +15,14 @@ public sealed class MessageTests
     }
 
     [Fact]
-    public void Constructor_WhenUserContentIsBlank_ThrowsArgumentException()
+    public void Constructor_WhenUserContentIsBlank_AllowsEmptyForAttachments()
     {
-        var action = () => new Message(MessageRole.User, "  ", Guid.NewGuid());
+        // Application layer validates that either text or attachments are present.
+        // Domain allows empty user content so attachment-only messages can be created.
+        var message = new Message(MessageRole.User, "  ", Guid.NewGuid());
 
-        action.Should().Throw<ArgumentException>()
-            .Which.ParamName.Should().Be("content");
+        message.Content.Should().Be("  ");
+        message.MessageRole.Should().Be(MessageRole.User);
     }
 
     [Fact]

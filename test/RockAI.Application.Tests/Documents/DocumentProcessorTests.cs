@@ -126,8 +126,9 @@ public class DocumentProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_EmptyFile_ReturnsEmptyDocumentError()
+    public async Task ProcessAsync_EmptyFile_SucceedsWithEmptyText()
     {
+        // Whitespace-only files succeed with empty extract (attachment flow must not hard-fail).
         var relative = "conv1/att4/empty.txt";
         await using (var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("   \n  ")))
         {
@@ -145,8 +146,9 @@ public class DocumentProcessorTests
 
         var result = await _processor.ProcessAsync(attachment);
 
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == "Attachment.EmptyDocument");
+        Assert.False(result.IsError);
+        Assert.True(result.Value.Success);
+        Assert.True(string.IsNullOrWhiteSpace(result.Value.ExtractedText));
     }
 
     [Fact]

@@ -56,6 +56,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ((Command)SendMessageCommand).ChangeCanExecute();
             ((Command)DeleteConversationCommand).ChangeCanExecute();
             ((Command)EditConversationCommand).ChangeCanExecute();
+            ((Command)AttachFilesCommand).ChangeCanExecute();
 
             var selectionVersion = ++_selectionVersion;
             _selectedConversationLoadTask =
@@ -78,6 +79,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ((Command)StopGenerationCommand).ChangeCanExecute();
             ((Command)DeleteConversationCommand).ChangeCanExecute();
             ((Command)EditConversationCommand).ChangeCanExecute();
+            ((Command)AttachFilesCommand).ChangeCanExecute();
             UpdateMessageActionsEnabled();
         }
     }
@@ -129,6 +131,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ((Command)DeleteConversationCommand).ChangeCanExecute();
             ((Command)EditConversationCommand).ChangeCanExecute();
             ((Command)LogoutCommand).ChangeCanExecute();
+            ((Command)AttachFilesCommand).ChangeCanExecute();
             UpdateMessageActionsEnabled();
         }
     }
@@ -940,14 +943,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task AttachFilesAsync()
     {
-        if (SelectedConversation is null || IsBusy || IsGenerating)
+        if (IsBusy || IsGenerating)
             return;
+
+        if (SelectedConversation is null)
+        {
+            ErrorMessage = "Select or create a conversation before attaching files.";
+            return;
+        }
 
         try
         {
             var files = await _filePicker.PickFilesAsync(cancellationToken: CancellationToken.None);
             if (files.Count == 0)
+            {
+                // User cancelled or picker failed silently — do not treat as error
                 return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
