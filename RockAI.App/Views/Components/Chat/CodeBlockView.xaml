@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="RockAI.App.Views.Components.Chat.CodeBlockView">
+
+    <Border
+        StrokeThickness="1"
+        Stroke="{AppThemeBinding Light='#CCCCCC', Dark='#555555'}"
+        StrokeShape="RoundRectangle 6"
+        BackgroundColor="{AppThemeBinding Light='#1E1E1E', Dark='#1A1A1A'}"
+        Padding="0">
+
+        <Grid RowDefinitions="Auto,*">
+            <!-- Header: language + Copy -->
+            <Grid ColumnDefinitions="*,Auto" Padding="10,6" BackgroundColor="{AppThemeBinding Light='#2D2D2D', Dark='#252525'}">
+                <Label
+                    x:Name="LanguageLabel"
+                    Text="{Binding Language}"
+                    FontSize="11"
+                    TextColor="#AAAAAA"
+                    VerticalOptions="Center" />
+                <Button
+                    Grid.Column="1"
+                    Text="Copy"
+                    FontSize="11"
+                    Padding="10,2"
+                    HeightRequest="28"
+                    Clicked="OnCopyClicked"
+                    BackgroundColor="Transparent"
+                    TextColor="#CCCCCC"
+                    BorderWidth="0" />
+            </Grid>
+
+            <!-- Code body: horizontal scroll only for long lines; vertical owned by parent list -->
+            <ScrollView
+                Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalScrollBarVisibility="Default"
+                VerticalScrollBarVisibility="Never"
+                Padding="10,8">
+                <Label
+                    x:Name="CodeLabel"
+                    Text="{Binding Code}"
+                    FontFamily="OpenSansRegular"
+                    FontSize="13"
+                    TextColor="#E6E6E6"
+                    LineBreakMode="NoWrap" />
+            </ScrollView>
+        </Grid>
+    </Border>
+</ContentView>

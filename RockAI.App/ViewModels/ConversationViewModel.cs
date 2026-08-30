@@ -10,6 +10,8 @@ public sealed class ConversationViewModel : INotifyPropertyChanged
 
     public Guid Id { get; }
 
+    public DateTime CreatedAt { get; }
+
     public string Title
     {
         get => _title;
@@ -27,6 +29,7 @@ public sealed class ConversationViewModel : INotifyPropertyChanged
     {
         Id = conversation.Id;
         _title = conversation.Title;
+        CreatedAt = conversation.CreatedAt;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

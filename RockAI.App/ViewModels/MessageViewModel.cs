@@ -67,6 +67,12 @@ public sealed class MessageViewModel : INotifyPropertyChanged
         _actionsEnabled &&
         Status != MessageStatus.Streaming;
 
+    /// <summary>True when this is an assistant message (Markdown rendering).</summary>
+    public bool IsAssistant => MessageRole == MessageRole.Assistant;
+
+    /// <summary>True for user/system messages (plain text rendering).</summary>
+    public bool IsPlainText => MessageRole != MessageRole.Assistant;
+
     public ICommand RetryCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand DeleteCommand { get; }

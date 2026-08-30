@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:RockAI.App.ViewModels"
+    x:Class="RockAI.App.Views.Components.Conversations.ConversationSidebar">
+
+    <Border StrokeThickness="1" Padding="12">
+        <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12">
+            <Label Text="Conversations" FontSize="18" FontAttributes="Bold" />
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Button Text="+ New Chat" Command="{Binding NewConversationCommand}" />
+                <Button Grid.Column="1" Text="Edit" Command="{Binding EditConversationCommand}" />
+                <Button Grid.Column="2" Text="Delete" Command="{Binding DeleteConversationCommand}" />
+            </Grid>
+
+            <CollectionView
+                Grid.Row="2"
+                ItemsSource="{Binding Conversations}"
+                SelectionMode="Single"
+                SelectedItem="{Binding SelectedConversation, Mode=TwoWay}">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="2" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ConversationViewModel">
+                        <Border
+                            Padding="5"
+                            StrokeThickness="1"
+                            Stroke="{AppThemeBinding Light='#DDDDDD', Dark='#444444'}"
+                            BackgroundColor="{AppThemeBinding Light='#F2F2F2', Dark='#303030'}"
+                            StrokeShape="RoundRectangle 8">
+                            <Grid
+                                Padding="5"
+                                Margin="0,0,0,8"
+                                RowDefinitions="Auto,Auto"
+                                BackgroundColor="{AppThemeBinding Light='#F2F2F2', Dark='#303030'}">
+                                <Label Text="{Binding Title}" FontAttributes="Bold" />
+                                <Label
+                                    Grid.Row="1"
+                                    Text="{Binding CreatedAt, StringFormat='{0:g}'}"
+                                    FontSize="11"
+                                    Opacity="0.7" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+    </Border>
+</ContentView>

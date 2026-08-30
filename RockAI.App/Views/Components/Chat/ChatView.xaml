@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:chat="clr-namespace:RockAI.App.Views.Components.Chat"
+    x:Class="RockAI.App.Views.Components.Chat.ChatView">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="10">
+        <Label
+            Text="{Binding SelectedConversation.Title, TargetNullValue='Select a conversation'}"
+            FontSize="22"
+            FontAttributes="Bold" />
+
+        <Grid Grid.Row="1">
+            <chat:MessageList x:Name="MessageListControl" />
+            <chat:EmptyChatView
+                IsVisible="{Binding HasNoMessages}"
+                InputTransparent="True" />
+        </Grid>
+
+        <Label
+            Grid.Row="2"
+            Text="{Binding ErrorMessage}"
+            TextColor="Red" />
+
+        <chat:ChatComposer Grid.Row="3" />
+    </Grid>
+</ContentView>

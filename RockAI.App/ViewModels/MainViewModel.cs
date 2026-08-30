@@ -77,6 +77,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public bool IsSendVisible => !IsGenerating;
+
+    /// <summary>True when the current conversation has no messages (empty-state UI).</summary>
+    public bool HasNoMessages => Messages.Count == 0;
+
     public string MessageText
     {
         get => _messageText;
@@ -307,7 +311,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (conversation is null)
         {
             if (selectionVersion == _selectionVersion)
+            {
                 Messages.Clear();
+                NotifyMessagesChanged();
+            }
 
             return;
         }
@@ -332,7 +339,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             foreach (var message in result.Value)
                 Messages.Add(CreateMessageViewModel(message));// new MessageViewModel(message, RetryMessageAsync));
 
-            MessagesChanged?.Invoke();
+            NotifyMessagesChanged();
 
         }
         catch (Exception ex)
@@ -375,7 +382,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 conversation.Title = result.Value.NewTitle;
             }
 
-            MessagesChanged?.Invoke();
+            NotifyMessagesChanged();
             MessageText = string.Empty;
 
             var assistantResult = await _messageService.CreateAssistantMessageAsync(
@@ -390,7 +397,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             var assistantMessage = CreateMessageViewModel(assistantResult.Value);
             Messages.Add(assistantMessage);
-            MessagesChanged?.Invoke();
+            NotifyMessagesChanged();
 
             await GenerateAssistantAsync(conversation, assistantMessage, BuildRequest(), cancellationToken);
         }
@@ -486,7 +493,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 assistantMessage.Append(content);
                 if (ReferenceEquals(_selectedConversation, conversation))
-                    MessagesChanged?.Invoke();
+                    NotifyMessagesChanged();
             });
         }
 
@@ -537,7 +544,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             assistantMessage.SetStatus(status);
             if (ReferenceEquals(_selectedConversation, SelectedConversation))
-                MessagesChanged?.Invoke();
+                NotifyMessagesChanged();
         });
 
         if (result.IsError)
@@ -642,7 +649,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     Messages.RemoveAt(i);
             }
 
-            MessagesChanged?.Invoke();
+            NotifyMessagesChanged();
 
             // Reuse existing send/generation pipeline for a new assistant reply.
             IsGenerating = true;
@@ -665,7 +672,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
                 var assistantMessage = CreateMessageViewModel(assistantResult.Value);
                 Messages.Add(assistantMessage);
-                MessagesChanged?.Invoke();
+                NotifyMessagesChanged();
 
                 await GenerateAssistantAsync(conversation, assistantMessage, BuildRequest(), cancellationToken);
             }
@@ -737,7 +744,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             }
 
             Messages.Remove(message);
-            MessagesChanged?.Invoke();
+            NotifyMessagesChanged();
         }
         catch (Exception ex)
         {
@@ -828,6 +835,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void SetError(IEnumerable<ErrorOr.Error> errors)
     {
         ErrorMessage = errors.FirstOrDefault().Description ?? "The operation failed.";
+    }
+
+    private void NotifyMessagesChanged()
+    {
+        OnPropertyChanged(nameof(HasNoMessages));
+        MessagesChanged?.Invoke();
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:chat="clr-namespace:RockAI.App.Views.Components.Chat"
+    xmlns:vm="clr-namespace:RockAI.App.ViewModels"
+    x:Class="RockAI.App.Views.Components.Chat.MessageList">
+
+    <Grid>
+        <CollectionView
+            x:Name="MessagesCollectionView"
+            ItemsSource="{Binding Messages}"
+            SelectionMode="None"
+            ItemSizingStrategy="MeasureAllItems"
+            VerticalOptions="Fill"
+            VerticalScrollBarVisibility="Always"
+            ItemsUpdatingScrollMode="KeepItemsInView"
+            Scrolled="OnMessagesScrolled">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="0.5" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:MessageViewModel">
+                    <chat:MessageBubble />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Floating scroll-to-bottom button (shown only when user scrolled away) -->
+        <Button
+            x:Name="ScrollToBottomButton"
+            Text="↓"
+            FontSize="18"
+            WidthRequest="44"
+            HeightRequest="44"
+            CornerRadius="22"
+            HorizontalOptions="End"
+            VerticalOptions="End"
+            Margin="0,0,16,16"
+            IsVisible="False"
+            Clicked="OnScrollToBottomClicked"
+            BackgroundColor="{AppThemeBinding Light='#512BD4', Dark='#ac99ea'}"
+            TextColor="White"
+            Opacity="0.9" />
+    </Grid>
+</ContentView>
