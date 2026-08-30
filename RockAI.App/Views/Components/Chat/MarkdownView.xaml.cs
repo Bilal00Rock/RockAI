@@ -70,7 +70,7 @@ public partial class MarkdownView : ContentView
 
         return new Label
         {
-            FormattedText = MarkdownParser.ParseInline(h.Text),
+            FormattedText = MarkdownParser.ParseInline(h.Text).ToFormattedString(),
             FontSize = size,
             FontAttributes = FontAttributes.Bold,
             LineBreakMode = LineBreakMode.WordWrap
@@ -81,7 +81,7 @@ public partial class MarkdownView : ContentView
     {
         return new Label
         {
-            FormattedText = MarkdownParser.ParseInline(text),
+            FormattedText = MarkdownParser.ParseInline(text).ToFormattedString(),
             FontSize = 14,
             LineBreakMode = LineBreakMode.WordWrap
         };
@@ -102,7 +102,7 @@ public partial class MarkdownView : ContentView
             });
             row.Children.Add(new Label
             {
-                FormattedText = MarkdownParser.ParseInline(list.Items[i]),
+                FormattedText = MarkdownParser.ParseInline(list.Items[i]).ToFormattedString(),
                 FontSize = 14,
                 LineBreakMode = LineBreakMode.WordWrap,
                 HorizontalOptions = LayoutOptions.FillAndExpand
@@ -122,7 +122,7 @@ public partial class MarkdownView : ContentView
             Padding = new Thickness(10, 6),
             Content = new Label
             {
-                FormattedText = MarkdownParser.ParseInline(text),
+                FormattedText = MarkdownParser.ParseInline(text).ToFormattedString(),
                 FontSize = 14,
                 FontAttributes = FontAttributes.Italic,
                 Opacity = 0.9,

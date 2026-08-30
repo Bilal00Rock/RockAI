@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RockAI.Application.Common.Interfaces;
+using RockAI.Application.Documents;
 using RockAI.Domain.Common.Interfaces;
 using RockAI.Infrastructure.Common.Persistence;
 using RockAI.Infrastructure.Messages.Persistence;
@@ -8,6 +9,7 @@ using RockAI.Infrastructure.Conversations.Persistence;
 using RockAI.Infrastructure.Users.Persistence;
 using RockAI.Infrastructure.Authentication.PasswordHasher;
 using RockAI.Infrastructure.Storage;
+using RockAI.Infrastructure.Documents.Extractors;
 
 namespace RockAI.Infrastructure;
 
@@ -49,7 +51,6 @@ public static class DependencyInjection
             string root;
             try
             {
-                // In MAUI context FileSystem.AppDataDirectory is available via Microsoft.Maui.Storage
                 root = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "RockAI",
@@ -61,6 +62,13 @@ public static class DependencyInjection
             }
             return new LocalFileStorageService(root);
         });
+
+        // Document understanding — extractors + processor
+        services.AddSingleton<IFileContentExtractor, PlainTextExtractor>();
+        services.AddSingleton<IFileContentExtractor, MarkdownExtractor>();
+        services.AddSingleton<IFileContentExtractor, SourceCodeExtractor>();
+        services.AddSingleton<IFileContentExtractor, StructuredTextExtractor>();
+        services.AddScoped<IDocumentProcessor, DocumentProcessor>();
 
         // Database initializer to ensure database creation and seed default data
         services.AddTransient<Common.Persistence.DatabaseInitializer>();

@@ -160,12 +160,13 @@ public static partial class MarkdownParser
     }
 
     /// <summary>
-    /// Parses inline Markdown (bold, italic, inline code, links) into a FormattedString.
-    /// Safe for incomplete/streaming text.
+    /// Parses inline Markdown (bold, italic, inline code, links) into a lightweight InlineFormattedString.
+    /// This avoids constructing MAUI UI types during tests and streaming scenarios. Use ToFormattedString()
+    /// on the result when running in a MAUI UI context.
     /// </summary>
-    public static FormattedString ParseInline(string text)
+    public static InlineFormattedString ParseInline(string text)
     {
-        var fs = new FormattedString();
+        var fs = new InlineFormattedString();
         if (string.IsNullOrEmpty(text))
             return fs;
 
@@ -174,30 +175,33 @@ public static partial class MarkdownParser
         var len = text.Length;
         var buffer = new StringBuilder();
 
-        void Flush(FontAttributes attrs = FontAttributes.None, string? fontFamily = null, Color? color = null)
+        void Flush(FontAttributes attrs = FontAttributes.None, string? fontFamily = null, Color? color = null, TextDecorations? dec = null, Color? background = null)
         {
             if (buffer.Length == 0)
                 return;
-            var span = new Span { Text = buffer.ToString(), FontAttributes = attrs };
-            if (fontFamily is not null)
-                span.FontFamily = fontFamily;
-            if (color is not null)
-                span.TextColor = color;
-            fs.Spans.Add(span);
+            fs.Spans.Add(new InlineSpan
+            {
+                Text = buffer.ToString(),
+                FontAttributes = attrs,
+                FontFamily = fontFamily,
+                TextColor = color,
+                TextDecorations = dec,
+                BackgroundColor = background
+            });
             buffer.Clear();
         }
 
         while (i < len)
         {
             // Inline code `...`
-            if (text[i] == '`' )
+            if (text[i] == '`')
             {
                 Flush();
                 var end = text.IndexOf('`', i + 1);
                 if (end > i)
                 {
                     var code = text.Substring(i + 1, end - i - 1);
-                    fs.Spans.Add(new Span
+                    fs.Spans.Add(new InlineSpan
                     {
                         Text = code,
                         FontFamily = "OpenSansRegular",
@@ -217,7 +221,7 @@ public static partial class MarkdownParser
                 if (end > i)
                 {
                     var bold = text.Substring(i + 2, end - i - 2);
-                    fs.Spans.Add(new Span { Text = bold, FontAttributes = FontAttributes.Bold });
+                    fs.Spans.Add(new InlineSpan { Text = bold, FontAttributes = FontAttributes.Bold });
                     i = end + 2;
                     continue;
                 }
@@ -231,7 +235,7 @@ public static partial class MarkdownParser
                 if (end > i)
                 {
                     var italic = text.Substring(i + 1, end - i - 1);
-                    fs.Spans.Add(new Span { Text = italic, FontAttributes = FontAttributes.Italic });
+                    fs.Spans.Add(new InlineSpan { Text = italic, FontAttributes = FontAttributes.Italic });
                     i = end + 1;
                     continue;
                 }
@@ -249,7 +253,7 @@ public static partial class MarkdownParser
                         Flush();
                         var linkText = text.Substring(i + 1, closeBracket - i - 1);
                         // URL is available but MAUI Span doesn't navigate; show as underlined text
-                        fs.Spans.Add(new Span
+                        fs.Spans.Add(new InlineSpan
                         {
                             Text = linkText,
                             TextDecorations = TextDecorations.Underline,

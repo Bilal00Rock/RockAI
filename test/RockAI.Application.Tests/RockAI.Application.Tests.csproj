@@ -21,6 +21,7 @@
   <ItemGroup>
 	<ProjectReference Include="..\RockAI.Common.Tests\RockAI.Common.Tests.csproj" />
 	<ProjectReference Include="..\..\RockAI.Application\RockAI.Application.csproj" />
+	<ProjectReference Include="..\..\RockAI.Infrastructure\RockAI.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using CommunityToolkit.Maui;
 using RockAI.App.Services.Authentication;
+using RockAI.App.Services.Files;
 using RockAI.App.ViewModels;
 using RockAI.App.Views;
 using RockAI.Application;
@@ -37,15 +38,16 @@ namespace RockAI.App
             });
             // Register infrastructure (EF Core, repositories, unit of work, etc.)
             var databasePath = Path.Combine(
-    FileSystem.AppDataDirectory,
-    "RockAI.db");
+                FileSystem.AppDataDirectory,
+                "RockAI.db");
             builder.Services.AddInfrastructure(databasePath);
             builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
             builder.Services.AddScoped<IConversationService, ConversationService>();
             builder.Services.AddScoped<IMessageService, MessageService>();
             builder.Services.AddSingleton<IUserSession, UserSession>();
-            //builder.Services.AddTransient<ViewModels.LoginViewModel>();
-            //builder.Services.AddTransient<ViewModels.MainViewModel>();
+
+            // File picker (MAUI implementation)
+            builder.Services.AddSingleton<IFilePickerService, MauiFilePickerService>();
 
             builder.Services.AddTransient<LoginViewModel>();
             builder.Services.AddTransient<MainViewModel>();
