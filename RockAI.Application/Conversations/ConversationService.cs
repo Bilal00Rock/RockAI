@@ -113,7 +113,22 @@ public sealed class ConversationService : IConversationService
         await _unitOfWork.CommitChangesAsync();
         return conversationResult.Value;
     }
+    public async Task<ErrorOr<Success>> DeleteConversationAsync(
+       Guid conversationId,
+       CancellationToken cancellationToken = default)
+    {
+        var userIdResult = GetCurrentUserId();
+        if (userIdResult.IsError)
+            return userIdResult.Errors;
 
+        var conversationResult = await GetOwnedConversationAsync(conversationId, userIdResult.Value, cancellationToken);
+        if (conversationResult.IsError)
+            return conversationResult.Errors;
+
+        await _conversationsRepository.DeleteAsync(conversationResult.Value, cancellationToken);
+        await _unitOfWork.CommitChangesAsync();
+        return Result.Success;
+    }
     private async Task<ErrorOr<Conversation>> GetOwnedConversationAsync(
         Guid conversationId,
         Guid userId,

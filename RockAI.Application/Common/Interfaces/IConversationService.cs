@@ -27,4 +27,8 @@ public interface IConversationService
     Task<ErrorOr<Conversation>> CompleteConversationAsync(
         Guid conversationId,
         CancellationToken cancellationToken = default);
+
+    Task<ErrorOr<Success>> DeleteConversationAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken = default);
 }

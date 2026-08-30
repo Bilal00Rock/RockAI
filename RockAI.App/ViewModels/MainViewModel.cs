@@ -48,6 +48,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             StopGeneration();
             ((Command)SendMessageCommand).ChangeCanExecute();
+            ((Command)DeleteConversationCommand).ChangeCanExecute();
 
             var selectionVersion = ++_selectionVersion;
             _selectedConversationLoadTask =
@@ -68,6 +69,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsSendVisible));
             ((Command)SendMessageCommand).ChangeCanExecute();
             ((Command)StopGenerationCommand).ChangeCanExecute();
+            ((Command)DeleteConversationCommand).ChangeCanExecute();
         }
     }
 
@@ -111,6 +113,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             ((Command)NewConversationCommand).ChangeCanExecute();
             ((Command)SendMessageCommand).ChangeCanExecute();
+            ((Command)DeleteConversationCommand).ChangeCanExecute();
+            ((Command)LogoutCommand).ChangeCanExecute();
         }
     }
 
@@ -118,6 +122,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand SendMessageCommand { get; }
     public ICommand StopGenerationCommand { get; }
     public ICommand LogoutCommand { get; }
+    public ICommand DeleteConversationCommand { get; }
 
     public MainViewModel(
         IConversationService conversationService,
@@ -129,12 +134,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _messageService = messageService;
         _userSession = userSession;
         _aiService = aiService;
-        
+
 
         NewConversationCommand = new Command(async () => await CreateConversationAsync(), () => !IsBusy);
         SendMessageCommand = new Command(async () => await SendMessageAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null && !string.IsNullOrWhiteSpace(MessageText));
         StopGenerationCommand = new Command(StopGeneration, () => IsGenerating);
         LogoutCommand = new Command(async () => await LogoutAsync(), () => !IsBusy);
+        DeleteConversationCommand = new Command(async () => await DeleteConversationAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null);
     }
     private async Task LogoutAsync()
     {
@@ -221,6 +227,72 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task DeleteConversationAsync()
+    {
+        if (SelectedConversation is null || IsBusy || IsGenerating)
+            return;
+
+        var conversationToDelete = SelectedConversation;
+
+        bool confirmed;
+        try
+        {
+            confirmed = await Shell.Current.DisplayAlert(
+                "Delete conversation?",
+                "This will permanently delete this conversation and its messages.",
+                "Delete",
+                "Cancel");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return;
+        }
+
+        if (!confirmed)
+            return;
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var result = await _conversationService.DeleteConversationAsync(conversationToDelete.Id);
+            if (result.IsError)
+            {
+                SetError(result.Errors);
+                return;
+            }
+
+            var index = Conversations.IndexOf(conversationToDelete);
+            if (index < 0)
+                index = 0;
+
+            Conversations.Remove(conversationToDelete);
+
+            if (Conversations.Count == 0)
+            {
+                SelectedConversation = null;
+            }
+            else
+            {
+                var newIndex = Math.Min(index, Conversations.Count - 1);
+                SelectedConversation = Conversations[newIndex];
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Unable to delete the conversation.";
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ex);
+#endif
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+
     private async Task LoadSelectedConversationAsync(
         ConversationViewModel? conversation,
         int selectionVersion)
@@ -291,7 +363,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             Messages.Add(new MessageViewModel(result.Value.Message, RetryMessageAsync));
 
-            if(!string.IsNullOrWhiteSpace(result.Value.NewTitle))
+            if (!string.IsNullOrWhiteSpace(result.Value.NewTitle))
             {
                 conversation.Title = result.Value.NewTitle;
             }

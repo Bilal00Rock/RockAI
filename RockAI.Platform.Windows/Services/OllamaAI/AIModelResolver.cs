@@ -8,8 +8,9 @@ public sealed class AIModelResolver : IAIModelResolver
     private readonly Dictionary<AITask, string> _models = new()
     {
         [AITask.Chat] = "gemma3:4b",
-        [AITask.MasterDataExtraction] = "gemma3:4b",
-        [AITask.CVExtraction] = "gemma3:4b",
+        [AITask.CodeAnalysis] = "gemma3:4b",
+        [AITask.PDFAnalysis] = "gemma3:4b",
+        [AITask.Intract] = "gemma3:4b",
         [AITask.ImageAnalysis] = "gemma3:4b",
         [AITask.General] = "gemma3:4b"
     };

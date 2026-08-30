@@ -46,7 +46,24 @@ public sealed class ConversationServiceTests
             Arg.Any<CancellationToken>());
         await unitOfWork.DidNotReceive().CommitChangesAsync();
     }
+    [Fact]
+    public async Task DeleteConversationAsync_WhenOwned_DeletesAndCommits()
+    {
+        var userId = Guid.NewGuid();
+        var conversation = new ConversationBuilder().ForUser(userId).Build();
+        var conversations = Substitute.For<IConversationsRepository>();
+        conversations.GetByIdAsync(conversation.Id, userId, Arg.Any<CancellationToken>())
+            .Returns(conversation);
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        var session = new TestUserSession().AuthenticatedAs(userId);
+        var service = new ConversationService(conversations, unitOfWork, session);
 
+        var result = await service.DeleteConversationAsync(conversation.Id);
+
+        result.IsError.Should().BeFalse();
+        await conversations.Received(1).DeleteAsync(conversation, Arg.Any<CancellationToken>());
+        await unitOfWork.Received(1).CommitChangesAsync();
+    }
     [Fact]
     public async Task CreateConversationAsync_WhenTitleIsBlank_ReturnsInvalidTitle()
     {
