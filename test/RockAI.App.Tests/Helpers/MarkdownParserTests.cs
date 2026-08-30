@@ -118,10 +118,11 @@ public class MarkdownParserTests
             ```
             """;
         var blocks = MarkdownParser.Parse(md);
-        blocks.Should().Contain(b => b is HeadingBlock);
-        blocks.Should().Contain(b => b is ParagraphBlock);
-        blocks.Should().Contain(b => b is ListBlock);
-        blocks.Should().Contain(b => b is CodeBlock c && c.Language == "csharp");
+        blocks.Should().Contain(x => x.GetType() == typeof(HeadingBlock));
+        blocks.Should().Contain(x => x.GetType() == typeof(ParagraphBlock));
+        blocks.Should().Contain(x => x.GetType() == typeof(ListBlock));
+
+        blocks.Should().Contain(x => x.GetType() == typeof(CodeBlock) && ((CodeBlock)x).Language == "csharp");
     }
 
     [Fact]

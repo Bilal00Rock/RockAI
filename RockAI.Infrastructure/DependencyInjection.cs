@@ -7,6 +7,7 @@ using RockAI.Infrastructure.Messages.Persistence;
 using RockAI.Infrastructure.Conversations.Persistence;
 using RockAI.Infrastructure.Users.Persistence;
 using RockAI.Infrastructure.Authentication.PasswordHasher;
+using RockAI.Infrastructure.Storage;
 
 namespace RockAI.Infrastructure;
 
@@ -16,8 +17,6 @@ public static class DependencyInjection
     // This project must not register ASP.NET Core server authentication or JWT generation.
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string databasePath)
     {
-        //return services
-        //    .AddPersistence();
         services.AddMediatR(cfg =>
         {
             cfg.RegisterServicesFromAssembly(
@@ -29,10 +28,6 @@ public static class DependencyInjection
 
     public static IServiceCollection AddPersistence(this IServiceCollection services, string databasePath)
     {
-    //    services.AddDbContext<RockAIDbContext>(options =>
-    //options.UseSqlite(
-    //    "Data Source=RockAI.db",
-    //    sqlite => sqlite.MigrationsAssembly("RockAI.Migrations")));
         services.AddDbContext<RockAIDbContext>(options =>
         options.UseSqlite(
             $"Data Source={databasePath}",
@@ -46,6 +41,26 @@ public static class DependencyInjection
 
         // Password hasher (for local seeding and optional client-side hashing)
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
+
+        // Local file storage for attachments (local-first)
+        services.AddSingleton<IFileStorageService>(sp =>
+        {
+            // Prefer MAUI FileSystem when available; fall back for tests/tools
+            string root;
+            try
+            {
+                // In MAUI context FileSystem.AppDataDirectory is available via Microsoft.Maui.Storage
+                root = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "RockAI",
+                    "attachments");
+            }
+            catch
+            {
+                root = Path.Combine(Path.GetTempPath(), "RockAI", "attachments");
+            }
+            return new LocalFileStorageService(root);
+        });
 
         // Database initializer to ensure database creation and seed default data
         services.AddTransient<Common.Persistence.DatabaseInitializer>();

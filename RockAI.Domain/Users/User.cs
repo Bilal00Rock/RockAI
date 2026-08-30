@@ -20,7 +20,9 @@ public class User : Entity
         string email,
         string passwordHash,
         IEnumerable<UserRole>? roles = null,
-        Guid? id = null)
+        Guid? id = null,
+        DateTime? createdAt = null,
+        Guid? createdBy = null)
             : base(id ?? Guid.NewGuid())
     {
         if (string.IsNullOrWhiteSpace(firstName))
@@ -51,7 +53,9 @@ public class User : Entity
         {
             _roles.AddRange(roles.Distinct());
         }
+        SetCreatedAudit(createdBy, createdAt);
     }
+
     private User()
     {
         FirstName = string.Empty;
@@ -65,7 +69,7 @@ public class User : Entity
         return _roles.Contains(role);
     }
 
-    public ErrorOr<Success> AddRole(UserRole role)
+    public ErrorOr<Success> AddRole(UserRole role, Guid? updatedBy = null)
     {
         if (HasRole(role))
         {
@@ -73,10 +77,11 @@ public class User : Entity
         }
 
         _roles.Add(role);
-
+        SetUpdatedAudit(updatedBy);
         return Result.Success;
     }
-    public ErrorOr<Success> RemoveRole(UserRole role)
+
+    public ErrorOr<Success> RemoveRole(UserRole role, Guid? updatedBy = null)
     {
         if (!HasRole(role))
         {
@@ -90,7 +95,7 @@ public class User : Entity
         }
 
         _roles.Remove(role);
-
+        SetUpdatedAudit(updatedBy);
         return Result.Success;
     }
 
@@ -98,6 +103,4 @@ public class User : Entity
     {
         return passwordHasher.IsCorrectPassword(password, _passwordHash);
     }
-
-
 }

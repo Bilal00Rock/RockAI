@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-using System;
 using ErrorOr;
 using RockAI.Domain.Common.Interfaces;
 
@@ -11,16 +9,17 @@ public class Conversation : Entity
     public ConversationType ConversationType { get; private set; }
     public Guid UserId { get; }
     public bool IsCompleted { get; private set; }
-    public DateTime CreatedAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
+
     public Conversation(
         ConversationType conversationType,
         string title,
         Guid userId,
         Guid? id = null,
-        DateTime? createdAt = null,  
-        bool isCompleted = false ) 
-            : base(id ?? Guid.NewGuid() )
+        DateTime? createdAt = null,
+        bool isCompleted = false,
+        Guid? createdBy = null)
+            : base(id ?? Guid.NewGuid())
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -38,7 +37,7 @@ public class Conversation : Entity
         Title = title;
         UserId = userId;
         IsCompleted = isCompleted;
-        CreatedAt = createdAt ?? DateTime.UtcNow;
+        SetCreatedAudit(createdBy ?? userId, createdAt);
         if (isCompleted)
         {
             CompletedAt = DateTime.UtcNow;
@@ -48,10 +47,10 @@ public class Conversation : Entity
     private Conversation()
     {
         Title = string.Empty;
-        ConversationType = null!; 
+        ConversationType = null!;
     }
-    
-    public ErrorOr<Success> UpdateConversation(string title, ConversationType conversationType, bool isCompleted)
+
+    public ErrorOr<Success> UpdateConversation(string title, ConversationType conversationType, bool isCompleted, Guid? updatedBy = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -59,7 +58,7 @@ public class Conversation : Entity
         }
         Title = title;
         ConversationType = conversationType;
-        
+
         if (isCompleted && !IsCompleted)
         {
             MarkAsCompleted();
@@ -68,18 +67,22 @@ public class Conversation : Entity
         {
             MarkAsIncomplete();
         }
-        
+
+        SetUpdatedAudit(updatedBy);
         return Result.Success;
     }
+
     public void MarkAsCompleted()
     {
         IsCompleted = true;
         CompletedAt = DateTime.UtcNow;
+        SetUpdatedAudit();
     }
-    
+
     public void MarkAsIncomplete()
     {
         IsCompleted = false;
         CompletedAt = null;
+        SetUpdatedAudit();
     }
 }

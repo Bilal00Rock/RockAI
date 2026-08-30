@@ -10,6 +10,8 @@ public sealed class UserBuilder
     private string _passwordHash = "hashed-password";
     private IEnumerable<UserRole>? _roles;
     private Guid? _id;
+    private DateTime? _createdAt;
+    private Guid? _createdBy;
 
     public UserBuilder WithName(string firstName, string lastName)
     {
@@ -42,5 +44,25 @@ public sealed class UserBuilder
         return this;
     }
 
-    public User Build() => new(_firstName, _lastName, _email, _passwordHash, _roles, _id);
+    public UserBuilder CreatedAt(DateTime createdAt)
+    {
+        _createdAt = createdAt;
+        return this;
+    }
+
+    public UserBuilder CreatedBy(Guid createdBy)
+    {
+        _createdBy = createdBy;
+        return this;
+    }
+
+    public User Build() => new(
+        _firstName,
+        _lastName,
+        _email,
+        _passwordHash,
+        _roles,
+        _id,
+        _createdAt,
+        _createdBy);
 }

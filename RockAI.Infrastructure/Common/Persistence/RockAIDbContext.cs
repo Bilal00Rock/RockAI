@@ -2,6 +2,7 @@ using System.Reflection;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using RockAI.Application.Common.Interfaces;
+using RockAI.Domain.Attachments;
 using RockAI.Domain.Common.Interfaces;
 using RockAI.Domain.Conversations;
 using RockAI.Domain.Messages;
@@ -22,6 +23,7 @@ public class RockAIDbContext : DbContext, IUnitOfWork
     public DbSet<Conversation> Conversations { get; set; } = null!;
     public DbSet<Message> Messages { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
+    public DbSet<Attachment> Attachments { get; set; } = null!;
 
     public async Task CommitChangesAsync()
     {

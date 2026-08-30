@@ -10,6 +10,7 @@ public sealed class ConversationBuilder
     private Guid? _id;
     private DateTime? _createdAt;
     private bool _isCompleted;
+    private Guid? _createdBy;
 
     public ConversationBuilder WithTitle(string title)
     {
@@ -41,6 +42,12 @@ public sealed class ConversationBuilder
         return this;
     }
 
+    public ConversationBuilder CreatedBy(Guid createdBy)
+    {
+        _createdBy = createdBy;
+        return this;
+    }
+
     public ConversationBuilder Completed()
     {
         _isCompleted = true;
@@ -53,5 +60,6 @@ public sealed class ConversationBuilder
         _userId,
         _id,
         _createdAt,
-        _isCompleted);
+        _isCompleted,
+        _createdBy);
 }

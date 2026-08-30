@@ -22,6 +22,12 @@ public class MessageConfigurations : IEntityTypeConfiguration<Message>
         builder.Property(m => m.CreatedAt)
             .IsRequired();
 
+        builder.Property(m => m.UpdatedAt);
+
+        builder.Property(m => m.CreatedBy);
+
+        builder.Property(m => m.UpdatedBy);
+
         builder.Property(m => m.ConversationId)
             .IsRequired();
 
@@ -41,5 +47,13 @@ public class MessageConfigurations : IEntityTypeConfiguration<Message>
                 messageStatus => messageStatus.Value,
                 value => MessageStatus.FromValue(value))
             .IsRequired();
+
+        builder.HasMany(m => m.Attachments)
+            .WithOne()
+            .HasForeignKey(a => a.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(m => m.Attachments)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

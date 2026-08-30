@@ -10,6 +10,9 @@ public class UserConfigurations : IEntityTypeConfiguration<User>
     {
         builder.HasKey(u => u.Id);
 
+        builder.Property(u => u.Id)
+            .ValueGeneratedNever();
+
         builder.Property(u => u.FirstName)
             .IsRequired()
             .HasMaxLength(100);
@@ -21,6 +24,15 @@ public class UserConfigurations : IEntityTypeConfiguration<User>
         builder.Property(u => u.Email)
             .IsRequired()
             .HasMaxLength(320);
+
+        builder.Property(u => u.CreatedAt)
+            .IsRequired();
+
+        builder.Property(u => u.UpdatedAt);
+
+        builder.Property(u => u.CreatedBy);
+
+        builder.Property(u => u.UpdatedBy);
 
         builder.Property("_passwordHash")
             .HasColumnName("PasswordHash")

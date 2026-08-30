@@ -10,6 +10,7 @@ public sealed class MessageBuilder
     private Guid? _id;
     private DateTime? _createdAt;
     private MessageStatus _status = MessageStatus.Pending;
+    private Guid? _createdBy;
 
     public MessageBuilder WithContent(string content)
     {
@@ -47,11 +48,18 @@ public sealed class MessageBuilder
         return this;
     }
 
+    public MessageBuilder CreatedBy(Guid createdBy)
+    {
+        _createdBy = createdBy;
+        return this;
+    }
+
     public Message Build() => new(
         _role,
         _content,
         _conversationId,
         _id,
         _createdAt,
-        _status);
+        _status,
+        _createdBy);
 }
