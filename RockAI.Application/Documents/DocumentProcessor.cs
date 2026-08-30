@@ -77,12 +77,12 @@ public sealed class DocumentProcessor : IDocumentProcessor
                     processing.Error ?? "Document processing failed.",
                     processing.DocumentType);
 
-            if (string.IsNullOrWhiteSpace(processing.ExtractedText))
-                return AttachmentErrors.EmptyDocument;
+            // Empty extract is allowed (e.g. scanned PDF with no text layer); caller may still attach the file.
+            var extracted = processing.ExtractedText ?? string.Empty;
 
-            if (processing.ExtractedText.Length > MaxExtractedCharacters)
+            if (extracted.Length > MaxExtractedCharacters)
             {
-                var truncated = processing.ExtractedText[..MaxExtractedCharacters];
+                var truncated = extracted[..MaxExtractedCharacters];
                 var warnings = processing.Warnings.ToList();
                 warnings.Add(
                     $"Document was truncated to {MaxExtractedCharacters:N0} characters for this phase. Full RAG support is planned later.");

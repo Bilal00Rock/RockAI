@@ -25,11 +25,9 @@ public class Message : Entity
         Guid? createdBy = null)
             : base(id ?? Guid.NewGuid())
     {
-        // Allow empty content when role is Assistant or when attachments will be added.
-        if (string.IsNullOrWhiteSpace(content) && messageRole != MessageRole.Assistant)
-            throw new ArgumentException(
-                "Message content cannot be empty.",
-                nameof(content));
+        // Content may be empty when the message only carries attachments (validated at application layer).
+        if (content is null)
+            content = string.Empty;
 
         if (conversationId == Guid.Empty)
         {

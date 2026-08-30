@@ -10,6 +10,7 @@ using RockAI.Infrastructure.Users.Persistence;
 using RockAI.Infrastructure.Authentication.PasswordHasher;
 using RockAI.Infrastructure.Storage;
 using RockAI.Infrastructure.Documents.Extractors;
+using RockAI.Application.Attachments;
 
 namespace RockAI.Infrastructure;
 
@@ -68,7 +69,9 @@ public static class DependencyInjection
         services.AddSingleton<IFileContentExtractor, MarkdownExtractor>();
         services.AddSingleton<IFileContentExtractor, SourceCodeExtractor>();
         services.AddSingleton<IFileContentExtractor, StructuredTextExtractor>();
+        services.AddSingleton<IFileContentExtractor, PdfTextExtractor>();
         services.AddScoped<IDocumentProcessor, DocumentProcessor>();
+        services.AddScoped<IAttachmentService, AttachmentService>();
 
         // Database initializer to ensure database creation and seed default data
         services.AddTransient<Common.Persistence.DatabaseInitializer>();

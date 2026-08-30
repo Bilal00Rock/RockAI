@@ -4,23 +4,71 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     x:Class="RockAI.App.Views.Components.Chat.ChatComposer">
 
-    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-        <Editor
-            Text="{Binding MessageText}"
-            Placeholder="Type a message..."
-            AutoSize="TextChanges"
-            MaximumHeightRequest="100" />
-        <Button
-            Grid.Column="1"
-            Text="Send"
-            Command="{Binding SendMessageCommand}"
-            IsVisible="{Binding IsSendVisible}"
-            VerticalOptions="End" />
-        <Button
-            Grid.Column="1"
-            Text="Stop"
-            Command="{Binding StopGenerationCommand}"
-            IsVisible="{Binding IsGenerating}"
-            VerticalOptions="End" />
-    </Grid>
+    <VerticalStackLayout Spacing="6">
+        <CollectionView
+            x:Name="PendingChips"
+            ItemsSource="{Binding PendingAttachments}"
+            MaximumHeightRequest="72">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Horizontal" ItemSpacing="6" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border
+                        Padding="8,4"
+                        Margin="0,0,0,2"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 12"
+                        BackgroundColor="{AppThemeBinding Light='#E8EEF7', Dark='#2A3340'}">
+                        <HorizontalStackLayout Spacing="6">
+                            <Label Text="📄" FontSize="14" VerticalOptions="Center" />
+                            <VerticalStackLayout Spacing="0" VerticalOptions="Center">
+                                <Label Text="{Binding FileName}" FontSize="12" LineBreakMode="TailTruncation" MaxLines="1" WidthRequest="120" />
+                                <Label Text="{Binding StatusText}" FontSize="10" Opacity="0.7" />
+                            </VerticalStackLayout>
+                            <Label Text="{Binding SizeText}" FontSize="10" Opacity="0.6" VerticalOptions="Center" />
+                            <Button
+                                Text="×"
+                                FontSize="14"
+                                Padding="4,0"
+                                BackgroundColor="Transparent"
+                                Command="{Binding RemoveCommand}"
+                                IsVisible="{Binding CanRemove}"
+                                VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <Button
+                Text="📎"
+                Command="{Binding AttachFilesCommand}"
+                BackgroundColor="Transparent"
+                FontSize="18"
+                Padding="4"
+                VerticalOptions="End" />
+
+            <Editor
+                Grid.Column="1"
+                Text="{Binding MessageText}"
+                Placeholder="Ask RockAI..."
+                AutoSize="TextChanges"
+                MaximumHeightRequest="100" />
+
+            <Button
+                Grid.Column="2"
+                Text="Send"
+                Command="{Binding SendMessageCommand}"
+                IsVisible="{Binding IsSendVisible}"
+                VerticalOptions="End" />
+            <Button
+                Grid.Column="2"
+                Text="Stop"
+                Command="{Binding StopGenerationCommand}"
+                IsVisible="{Binding IsGenerating}"
+                VerticalOptions="End" />
+        </Grid>
+    </VerticalStackLayout>
 </ContentView>

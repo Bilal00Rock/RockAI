@@ -21,12 +21,15 @@ public class MessagesRepository : IMessagesRepository
 
     public async Task<Message?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Messages.FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
+        return await _dbContext.Messages
+            .Include(m => m.Attachments)
+            .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
     public async Task<List<Message>> ListByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Messages
+            .Include(m => m.Attachments)
             .Where(message => message.ConversationId == conversationId)
             .OrderBy(message => message.CreatedAt)
             .ToListAsync(cancellationToken);

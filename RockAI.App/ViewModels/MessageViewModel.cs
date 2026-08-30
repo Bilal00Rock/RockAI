@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using RockAI.Domain.Attachments;
 using RockAI.Domain.Messages;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -73,6 +74,11 @@ public sealed class MessageViewModel : INotifyPropertyChanged
     /// <summary>True for user/system messages (plain text rendering).</summary>
     public bool IsPlainText => MessageRole != MessageRole.Assistant;
 
+    public IReadOnlyList<AttachmentChipViewModel> Attachments { get; }
+
+    public bool HasAttachments => Attachments.Count > 0;
+
+
     public ICommand RetryCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand DeleteCommand { get; }
@@ -89,6 +95,9 @@ public sealed class MessageViewModel : INotifyPropertyChanged
         Role = message.MessageRole.Name;
         _content = message.Content;
         _status = message.Status;
+        Attachments = message.Attachments
+            .Select(a => new AttachmentChipViewModel(a))
+            .ToList();
         _retryAction = retryAction;
         _editAction = editAction;
         _deleteAction = deleteAction;

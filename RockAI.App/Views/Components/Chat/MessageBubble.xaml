@@ -30,6 +30,31 @@
                 <Label Text="{Binding StatusText}" FontSize="11" Opacity="0.7" />
             </HorizontalStackLayout>
 
+            <!-- Attachment chips (compact) -->
+            <CollectionView
+                ItemsSource="{Binding Attachments}"
+                IsVisible="{Binding HasAttachments}"
+                MaximumHeightRequest="48">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="4" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border
+                            Padding="6,2"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 10"
+                            BackgroundColor="{AppThemeBinding Light='#D0D8E8', Dark='#3A4555'}">
+                            <HorizontalStackLayout Spacing="4">
+                                <Label Text="📄" FontSize="12" VerticalOptions="Center" />
+                                <Label Text="{Binding FileName}" FontSize="11" LineBreakMode="TailTruncation" MaxLines="1" WidthRequest="100" VerticalOptions="Center" />
+                                <Label Text="{Binding StatusText}" FontSize="10" Opacity="0.7" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
             <!-- Assistant messages use Markdown; user/system use plain text for fidelity -->
             <chat:MarkdownView
                 x:Name="MarkdownHost"

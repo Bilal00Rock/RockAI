@@ -1,6 +1,7 @@
 using ErrorOr;
 using RockAI.Application.Authentication;
 using RockAI.Application.Common.Interfaces;
+using RockAI.Domain.Attachments;
 using RockAI.Domain.Conversations;
 using RockAI.Domain.Messages;
 
@@ -28,13 +29,17 @@ public sealed class MessageService : IMessageService
     public async Task<ErrorOr<SendMessageResult>> SendMessageAsync(
         Guid conversationId,
         string content,
+        IReadOnlyList<Attachment>? attachments = null,
         CancellationToken cancellationToken = default)
     {
         var conversationResult = await GetOwnedConversationAsync(conversationId, cancellationToken);
         if (conversationResult.IsError)
             return conversationResult.Errors;
 
-        if (string.IsNullOrWhiteSpace(content))
+        var hasAttachments = attachments is { Count: > 0 };
+        var trimmed = content?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(trimmed) && !hasAttachments)
             return MessageErrors.InvalidContent;
 
         var existingMessages = await _messagesRepository.ListByConversationIdAsync(
@@ -44,22 +49,47 @@ public sealed class MessageService : IMessageService
         Message message;
         try
         {
-            message = new Message(MessageRole.User, content, conversationId);
+            message = new Message(
+                MessageRole.User,
+                trimmed,
+                conversationId,
+                createdBy: _userSession.UserId);
         }
         catch (ArgumentException)
         {
             return MessageErrors.InvalidContent;
         }
 
+        if (hasAttachments)
+        {
+            foreach (var attachment in attachments!)
+            {
+                // Ensure FK points at this message
+                if (attachment.MessageId != message.Id)
+                    attachment.AssignToMessage(message.Id, _userSession.UserId);
+
+                var addResult = message.AddAttachment(attachment);
+                if (addResult.IsError)
+                    return addResult.Errors;
+            }
+        }
+
         await _messagesRepository.AddMessageAsync(message, cancellationToken);
+
         string? newTitle = null;
         if (existingMessages.Count == 0)
         {
-            newTitle = CreateTitle(content);
+            var titleSource = !string.IsNullOrWhiteSpace(trimmed)
+                ? trimmed
+                : hasAttachments
+                    ? $"Attachment: {attachments![0].OriginalFileName}"
+                    : "New conversation";
+            newTitle = CreateTitle(titleSource);
             var updateResult = conversationResult.Value.UpdateConversation(
                 newTitle,
                 conversationResult.Value.ConversationType,
-                conversationResult.Value.IsCompleted);
+                conversationResult.Value.IsCompleted,
+                _userSession.UserId);
 
             if (updateResult.IsError)
                 return updateResult.Errors;
@@ -70,9 +100,7 @@ public sealed class MessageService : IMessageService
         }
 
         await _unitOfWork.CommitChangesAsync();
-        return new SendMessageResult(
-        message,
-        newTitle);
+        return new SendMessageResult(message, newTitle);
     }
 
     public async Task<ErrorOr<List<Message>>> GetMessagesAsync(
@@ -108,7 +136,7 @@ public sealed class MessageService : IMessageService
         if (conversation is null)
             return ConversationErrors.NotFound;
 
-        var updateResult = message.UpdateMessage(content, messageRole, status);
+        var updateResult = message.UpdateMessage(content, messageRole, status, userIdResult.Value);
         if (updateResult.IsError)
             return updateResult.Errors;
 
@@ -116,6 +144,7 @@ public sealed class MessageService : IMessageService
         await _unitOfWork.CommitChangesAsync();
         return message;
     }
+
     public async Task<ErrorOr<Message>> CreateAssistantMessageAsync(
         Guid conversationId,
         string content = "",
@@ -131,7 +160,8 @@ public sealed class MessageService : IMessageService
             MessageRole.Assistant,
             content,
             conversationId,
-            status: status ?? MessageStatus.Streaming);
+            status: status ?? MessageStatus.Streaming,
+            createdBy: _userSession.UserId);
 
         await _messagesRepository.AddMessageAsync(message, cancellationToken);
 
@@ -139,6 +169,7 @@ public sealed class MessageService : IMessageService
 
         return message;
     }
+
     public async Task<ErrorOr<Message>> EditMessageContentAsync(Guid messageId, string content, CancellationToken cancellationToken = default)
     {
         var userIdResult = GetCurrentUserId();
@@ -162,13 +193,12 @@ public sealed class MessageService : IMessageService
         if (message.Status == MessageStatus.Streaming)
             return MessageErrors.CannotModifyWhileStreaming;
 
-        var updateResult = message.UpdateMessage(content.Trim(), message.MessageRole, message.Status);
+        var updateResult = message.UpdateMessage(content.Trim(), message.MessageRole, message.Status, userIdResult.Value);
         if (updateResult.IsError)
             return updateResult.Errors;
 
         await _messagesRepository.UpdateAsync(message, cancellationToken);
 
-        // Linear conversation: editing a user message invalidates everything after it.
         if (message.MessageRole == MessageRole.User)
         {
             var all = await _messagesRepository.ListByConversationIdAsync(
@@ -179,7 +209,6 @@ public sealed class MessageService : IMessageService
                          m.Id != message.Id &&
                          m.CreatedAt >= message.CreatedAt))
             {
-                // Prefer CreatedAt order; if same timestamp, only remove messages that appear after in list.
                 if (later.CreatedAt > message.CreatedAt ||
                     (later.CreatedAt == message.CreatedAt &&
                      all.FindIndex(m => m.Id == later.Id) > all.FindIndex(m => m.Id == message.Id)))
@@ -223,11 +252,8 @@ public sealed class MessageService : IMessageService
         if (index < 0)
             return MessageErrors.NotFound;
 
-        // Always delete the target message.
         await _messagesRepository.DeleteAsync(message, cancellationToken);
 
-        // Linear model: deleting a user message also removes the following assistant
-        // response (if present) so history stays consistent.
         if (message.MessageRole == MessageRole.User && index + 1 < all.Count)
         {
             var next = all[index + 1];
@@ -238,6 +264,7 @@ public sealed class MessageService : IMessageService
         await _unitOfWork.CommitChangesAsync();
         return Result.Success;
     }
+
     private async Task<ErrorOr<Conversation>> GetOwnedConversationAsync(
         Guid conversationId,
         CancellationToken cancellationToken)
@@ -277,6 +304,9 @@ public sealed class MessageService : IMessageService
             if (lastSpace > 0)
                 title = title[..lastSpace];
         }
+
+        if (string.IsNullOrWhiteSpace(title))
+            return "New conversation";
 
         return char.ToUpperInvariant(title[0]) + title[1..];
     }

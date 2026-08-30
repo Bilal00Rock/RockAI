@@ -2,6 +2,8 @@ using Microsoft.Maui.Controls;
 using RockAI.Application.Common.Enums;
 using RockAI.Application.Common.Interfaces;
 using RockAI.Application.Common.Models;
+using RockAI.Application.Attachments;
+using RockAI.Domain.Attachments;
 using RockAI.Domain.Conversations;
 using RockAI.Domain.Messages;
 using System.Collections.ObjectModel;
@@ -30,10 +32,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<ConversationViewModel> Conversations { get; } = [];
     public ObservableCollection<MessageViewModel> Messages { get; } = [];
+    public ObservableCollection<AttachmentChipViewModel> PendingAttachments { get; } = [];
     public event Action? MessagesChanged;
     public string WelcomeMessage => $"Welcome, {_userSession.FullName}!";
     public Guid? UserId => _userSession.UserId;
     private readonly IAIService _aiService;
+    private readonly IFilePickerService _filePicker;
+    private readonly IAttachmentService _attachmentService;
+    private readonly IFileStorageService _fileStorage;
 
     public ConversationViewModel? SelectedConversation
     {
@@ -138,21 +144,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IConversationService conversationService,
         IMessageService messageService,
         IUserSession userSession,
-         IAIService aiService)
+        IAIService aiService,
+        IFilePickerService filePicker,
+        IAttachmentService attachmentService,
+        IFileStorageService fileStorage)
     {
         _conversationService = conversationService;
         _messageService = messageService;
         _userSession = userSession;
         _aiService = aiService;
-
+        _filePicker = filePicker;
+        _attachmentService = attachmentService;
+        _fileStorage = fileStorage;
 
         NewConversationCommand = new Command(async () => await CreateConversationAsync(), () => !IsBusy);
-        SendMessageCommand = new Command(async () => await SendMessageAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null && !string.IsNullOrWhiteSpace(MessageText));
+        SendMessageCommand = new Command(
+            async () => await SendMessageAsync(),
+            () => !IsBusy && !IsGenerating && SelectedConversation is not null &&
+                  (!string.IsNullOrWhiteSpace(MessageText) || PendingAttachments.Count > 0));
         StopGenerationCommand = new Command(StopGeneration, () => IsGenerating);
         LogoutCommand = new Command(async () => await LogoutAsync(), () => !IsBusy);
         DeleteConversationCommand = new Command(async () => await DeleteConversationAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null);
         EditConversationCommand = new Command(async () => await EditConversationAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null);
+        AttachFilesCommand = new Command(async () => await AttachFilesAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null);
     }
+
+    public ICommand AttachFilesCommand { get; }
     private async Task LogoutAsync()
     {
         if (IsBusy)
@@ -350,7 +367,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task SendMessageAsync()
     {
-        if (SelectedConversation is null || string.IsNullOrWhiteSpace(MessageText) || IsBusy || IsGenerating)
+        if (SelectedConversation is null || IsBusy || IsGenerating)
+            return;
+
+        if (string.IsNullOrWhiteSpace(MessageText) && PendingAttachments.Count == 0)
             return;
 
         IsBusy = true;
@@ -368,7 +388,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (!ReferenceEquals(_selectedConversation, conversation) || cancellationToken.IsCancellationRequested)
                 return;
 
-            var result = await _messageService.SendMessageAsync(conversation.Id, MessageText.Trim(), cancellationToken);
+            // Process pending attachments first
+            IReadOnlyList<RockAI.Domain.Attachments.Attachment>? domainAttachments = null;
+            if (PendingAttachments.Count > 0)
+            {
+                var picked = new List<PickedFile>();
+                // Pending chips already hold processed domain attachments when we process on attach;
+                // if still Selected, process now.
+                var toProcess = PendingAttachments.Where(c => c.Attachment is null).ToList();
+                // For this phase we process on attach (see AttachFilesAsync); use existing attachments.
+                domainAttachments = PendingAttachments
+                    .Where(c => c.Attachment is not null)
+                    .Select(c => c.Attachment!)
+                    .ToList();
+            }
+
+            var result = await _messageService.SendMessageAsync(
+                conversation.Id,
+                MessageText?.Trim() ?? string.Empty,
+                domainAttachments,
+                cancellationToken);
             if (result.IsError)
             {
                 SetError(result.Errors);
@@ -384,6 +423,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             NotifyMessagesChanged();
             MessageText = string.Empty;
+            PendingAttachments.Clear();
+            ((Command)SendMessageCommand).ChangeCanExecute();
 
             var assistantResult = await _messageService.CreateAssistantMessageAsync(
                 conversation.Id,
@@ -399,7 +440,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Messages.Add(assistantMessage);
             NotifyMessagesChanged();
 
-            await GenerateAssistantAsync(conversation, assistantMessage, BuildRequest(), cancellationToken);
+            await GenerateAssistantAsync(conversation, assistantMessage, await BuildRequestAsync(), cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -416,6 +457,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             CompleteGeneration(generationCts);
         }
     }
+
+
     private MessageViewModel CreateMessageViewModel(RockAI.Domain.Messages.Message message) =>
      new(message, RetryMessageAsync, EditMessageAsync, DeleteMessageAsync);
 
@@ -451,7 +494,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             await GenerateAssistantAsync(
                 conversation,
                 assistantMessage,
-                BuildRequest(assistantMessage),
+                await BuildRequestAsync(assistantMessage),
                 cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -551,12 +594,66 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SetError(result.Errors);
     }
 
-    private AIChatRequest BuildRequest(MessageViewModel? excludedMessage = null) => new()
+    private async Task<AIChatRequest> BuildRequestAsync(MessageViewModel? excludedMessage = null)
     {
-        Task = AITask.Chat,
-        Messages = Messages
-            .Where(message => message != excludedMessage)
-            .Select(message => new AIMessage
+        var messages = new List<AIMessage>();
+        foreach (var message in Messages.Where(m => m != excludedMessage))
+        {
+            var content = message.Content ?? string.Empty;
+
+            if (message.HasAttachments)
+            {
+                var sb = new System.Text.StringBuilder();
+                if (!string.IsNullOrWhiteSpace(content))
+                    sb.AppendLine(content).AppendLine();
+
+                foreach (var chip in message.Attachments)
+                {
+                    var att = chip.Attachment;
+                    if (att is null)
+                        continue;
+
+                    sb.AppendLine($"--- Attached document: {att.OriginalFileName} ({att.Extension.ToUpperInvariant()}) ---");
+                    if (att.Status == AttachmentStatus.Ready)
+                    {
+                        try
+                        {
+                            var extractedPath = att.RelativePath + ".extracted.txt";
+                            if (_fileStorage.Exists(extractedPath))
+                            {
+                                await using var stream = await _fileStorage.OpenReadAsync(extractedPath);
+                                using var reader = new StreamReader(stream);
+                                var extracted = await reader.ReadToEndAsync();
+                                if (!string.IsNullOrWhiteSpace(extracted))
+                                    sb.AppendLine(extracted.Trim());
+                                else
+                                    sb.AppendLine("[No extractable text]");
+                            }
+                            else
+                            {
+                                sb.AppendLine("[Document content unavailable]");
+                            }
+                        }
+                        catch
+                        {
+                            sb.AppendLine("[Failed to load document content]");
+                        }
+                    }
+                    else if (att.Status == AttachmentStatus.Failed)
+                    {
+                        sb.AppendLine($"[Could not process document: {att.ErrorMessage ?? "unknown error"}]");
+                    }
+                    else
+                    {
+                        sb.AppendLine("[Document not ready]");
+                    }
+                    sb.AppendLine("--- End of document ---").AppendLine();
+                }
+
+                content = sb.ToString().Trim();
+            }
+
+            messages.Add(new AIMessage
             {
                 Role = message.Role switch
                 {
@@ -565,9 +662,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     "System" => AIMessageRole.System,
                     _ => AIMessageRole.User
                 },
-                Content = message.Content
-            }).ToList()
-    };
+                Content = content
+            });
+        }
+
+        return new AIChatRequest
+        {
+            Task = AITask.Chat,
+            Messages = messages
+        };
+    }
+
 
     private void StopGeneration() => _generationCts?.Cancel();
 
@@ -674,7 +779,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Messages.Add(assistantMessage);
                 NotifyMessagesChanged();
 
-                await GenerateAssistantAsync(conversation, assistantMessage, BuildRequest(), cancellationToken);
+                await GenerateAssistantAsync(conversation, assistantMessage, await BuildRequestAsync(), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -830,6 +935,75 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             IsBusy = false;
         }
+    }
+
+
+    private async Task AttachFilesAsync()
+    {
+        if (SelectedConversation is null || IsBusy || IsGenerating)
+            return;
+
+        try
+        {
+            var files = await _filePicker.PickFilesAsync(cancellationToken: CancellationToken.None);
+            if (files.Count == 0)
+                return;
+
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+
+            var chips = new List<AttachmentChipViewModel>();
+            foreach (var f in files)
+            {
+                var ext = System.IO.Path.GetExtension(f.FileName).TrimStart('.').ToLowerInvariant();
+                var chip = new AttachmentChipViewModel(f.FileName, ext, f.SizeBytes);
+                chip.ApplyStatus(AttachmentStatus.Processing);
+                chip.RemoveCommand = new Command(() => RemovePendingAttachment(chip));
+                chips.Add(chip);
+                PendingAttachments.Add(chip);
+            }
+            ((Command)SendMessageCommand).ChangeCanExecute();
+
+            var result = await _attachmentService.CreateAndProcessAsync(
+                SelectedConversation.Id,
+                messageId: Guid.Empty,
+                files,
+                createdBy: _userSession.UserId);
+
+            if (result.IsError)
+            {
+                SetError(result.Errors);
+                foreach (var c in chips)
+                    c.ApplyStatus(AttachmentStatus.Failed, "Processing failed");
+                return;
+            }
+
+            for (var i = 0; i < chips.Count && i < result.Value.Count; i++)
+            {
+                var att = result.Value[i];
+                chips[i].Attachment = att;
+                chips[i].ApplyStatus(att.Status, att.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Unable to attach files.";
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ex);
+#endif
+        }
+        finally
+        {
+            IsBusy = false;
+            ((Command)SendMessageCommand).ChangeCanExecute();
+        }
+    }
+
+    private void RemovePendingAttachment(AttachmentChipViewModel chip)
+    {
+        if (chip is null) return;
+        PendingAttachments.Remove(chip);
+        ((Command)SendMessageCommand).ChangeCanExecute();
     }
 
     private void SetError(IEnumerable<ErrorOr.Error> errors)
