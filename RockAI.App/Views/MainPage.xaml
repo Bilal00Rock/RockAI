@@ -17,9 +17,10 @@
         <Border Grid.Row="1" Grid.Column="0" StrokeThickness="1" Padding="12">
             <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12">
                 <Label Text="Conversations" FontSize="18" FontAttributes="Bold" />
-                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                     <Button Text="+ New Chat" Command="{Binding NewConversationCommand}" />
-                    <Button Grid.Column="1" Text="Delete" Command="{Binding DeleteConversationCommand}" />
+                    <Button Grid.Column="1" Text="Edit" Command="{Binding EditConversationCommand}" />
+                    <Button Grid.Column="2" Text="Delete" Command="{Binding DeleteConversationCommand}" />
                 </Grid>
                 <CollectionView Grid.Row="2" ItemsSource="{Binding Conversations}" SelectionMode="Single" SelectedItem="{Binding SelectedConversation, Mode=TwoWay}">
                     <CollectionView.ItemsLayout>

@@ -167,6 +167,28 @@ public sealed class MessageService : IMessageService
             return updateResult.Errors;
 
         await _messagesRepository.UpdateAsync(message, cancellationToken);
+
+        // Linear conversation: editing a user message invalidates everything after it.
+        if (message.MessageRole == MessageRole.User)
+        {
+            var all = await _messagesRepository.ListByConversationIdAsync(
+                message.ConversationId,
+                cancellationToken);
+
+            foreach (var later in all.Where(m =>
+                         m.Id != message.Id &&
+                         m.CreatedAt >= message.CreatedAt))
+            {
+                // Prefer CreatedAt order; if same timestamp, only remove messages that appear after in list.
+                if (later.CreatedAt > message.CreatedAt ||
+                    (later.CreatedAt == message.CreatedAt &&
+                     all.FindIndex(m => m.Id == later.Id) > all.FindIndex(m => m.Id == message.Id)))
+                {
+                    await _messagesRepository.DeleteAsync(later, cancellationToken);
+                }
+            }
+        }
+
         await _unitOfWork.CommitChangesAsync();
         return message;
     }
@@ -193,7 +215,26 @@ public sealed class MessageService : IMessageService
         if (message.Status == MessageStatus.Streaming)
             return MessageErrors.CannotModifyWhileStreaming;
 
+        var all = await _messagesRepository.ListByConversationIdAsync(
+            message.ConversationId,
+            cancellationToken);
+
+        var index = all.FindIndex(m => m.Id == message.Id);
+        if (index < 0)
+            return MessageErrors.NotFound;
+
+        // Always delete the target message.
         await _messagesRepository.DeleteAsync(message, cancellationToken);
+
+        // Linear model: deleting a user message also removes the following assistant
+        // response (if present) so history stays consistent.
+        if (message.MessageRole == MessageRole.User && index + 1 < all.Count)
+        {
+            var next = all[index + 1];
+            if (next.MessageRole == MessageRole.Assistant)
+                await _messagesRepository.DeleteAsync(next, cancellationToken);
+        }
+
         await _unitOfWork.CommitChangesAsync();
         return Result.Success;
     }

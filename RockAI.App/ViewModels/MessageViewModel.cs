@@ -1,5 +1,4 @@
-using Microsoft.Maui.Controls.PlatformConfiguration;
-using RockAI.Application.Common.Enums;
+using Microsoft.Maui.Controls;
 using RockAI.Domain.Messages;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -60,6 +59,7 @@ public sealed class MessageViewModel : INotifyPropertyChanged
     /// <summary>User messages only, not while streaming, and actions not disabled globally.</summary>
     public bool CanEdit => _editAction is not null &&
         _actionsEnabled &&
+        MessageRole == MessageRole.User &&
         Status != MessageStatus.Streaming;
 
     public bool CanDelete => _deleteAction is not null &&
@@ -73,6 +73,7 @@ public sealed class MessageViewModel : INotifyPropertyChanged
     {
         Id = message.Id;
         ConversationId = message.ConversationId;
+        MessageRole = message.MessageRole;
         Role = message.MessageRole.Name;
         _content = message.Content;
         _status = message.Status;

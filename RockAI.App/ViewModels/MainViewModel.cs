@@ -49,6 +49,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             StopGeneration();
             ((Command)SendMessageCommand).ChangeCanExecute();
             ((Command)DeleteConversationCommand).ChangeCanExecute();
+            ((Command)EditConversationCommand).ChangeCanExecute();
 
             var selectionVersion = ++_selectionVersion;
             _selectedConversationLoadTask =
@@ -70,6 +71,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ((Command)SendMessageCommand).ChangeCanExecute();
             ((Command)StopGenerationCommand).ChangeCanExecute();
             ((Command)DeleteConversationCommand).ChangeCanExecute();
+            ((Command)EditConversationCommand).ChangeCanExecute();
             UpdateMessageActionsEnabled();
         }
     }
@@ -115,6 +117,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ((Command)NewConversationCommand).ChangeCanExecute();
             ((Command)SendMessageCommand).ChangeCanExecute();
             ((Command)DeleteConversationCommand).ChangeCanExecute();
+            ((Command)EditConversationCommand).ChangeCanExecute();
             ((Command)LogoutCommand).ChangeCanExecute();
             UpdateMessageActionsEnabled();
         }
@@ -125,6 +128,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand StopGenerationCommand { get; }
     public ICommand LogoutCommand { get; }
     public ICommand DeleteConversationCommand { get; }
+    public ICommand EditConversationCommand { get; }
 
     public MainViewModel(
         IConversationService conversationService,
@@ -143,6 +147,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         StopGenerationCommand = new Command(StopGeneration, () => IsGenerating);
         LogoutCommand = new Command(async () => await LogoutAsync(), () => !IsBusy);
         DeleteConversationCommand = new Command(async () => await DeleteConversationAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null);
+        EditConversationCommand = new Command(async () => await EditConversationAsync(), () => !IsBusy && !IsGenerating && SelectedConversation is not null);
     }
     private async Task LogoutAsync()
     {
@@ -229,7 +234,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    [Obsolete]
     private async Task DeleteConversationAsync()
     {
         if (SelectedConversation is null || IsBusy || IsGenerating)
@@ -384,7 +388,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            var assistantMessage = CreateMessageViewModel(result.Value.Message);
+            var assistantMessage = CreateMessageViewModel(assistantResult.Value);
             Messages.Add(assistantMessage);
             MessagesChanged?.Invoke();
 
@@ -585,12 +589,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (SelectedConversation?.Id != message.ConversationId)
             return;
 
+        if (message.MessageRole != MessageRole.User)
+            return;
+
         string? newContent;
         try
         {
             newContent = await Shell.Current.DisplayPromptAsync(
                 "Edit message",
-                "Update the message content:",
+                "Update the message content. Later messages will be removed and a new reply generated.",
                 accept: "Save",
                 cancel: "Cancel",
                 placeholder: "Message",
@@ -613,6 +620,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
+        var conversation = SelectedConversation;
         IsBusy = true;
         ErrorMessage = string.Empty;
         try
@@ -624,8 +632,50 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
+            // Persist succeeded: update UI content and drop subsequent messages.
             message.SetContent(result.Value.Content);
+
+            var index = Messages.IndexOf(message);
+            if (index >= 0)
+            {
+                for (var i = Messages.Count - 1; i > index; i--)
+                    Messages.RemoveAt(i);
+            }
+
             MessagesChanged?.Invoke();
+
+            // Reuse existing send/generation pipeline for a new assistant reply.
+            IsGenerating = true;
+            _generationCts?.Dispose();
+            _generationCts = new CancellationTokenSource();
+            var cancellationToken = _generationCts.Token;
+            var generationCts = _generationCts;
+
+            try
+            {
+                var assistantResult = await _messageService.CreateAssistantMessageAsync(
+                    conversation.Id,
+                    status: MessageStatus.Streaming,
+                    cancellationToken: cancellationToken);
+                if (assistantResult.IsError)
+                {
+                    SetError(assistantResult.Errors);
+                    return;
+                }
+
+                var assistantMessage = CreateMessageViewModel(assistantResult.Value);
+                Messages.Add(assistantMessage);
+                MessagesChanged?.Invoke();
+
+                await GenerateAssistantAsync(conversation, assistantMessage, BuildRequest(), cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                CompleteGeneration(generationCts);
+            }
         }
         catch (Exception ex)
         {
@@ -633,14 +683,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(ex);
 #endif
-        }
-        finally
-        {
             IsBusy = false;
+            IsGenerating = false;
         }
     }
 
-    [Obsolete]
     private async Task DeleteMessageAsync(MessageViewModel message)
     {
         if (IsBusy || IsGenerating)
@@ -649,12 +696,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (SelectedConversation?.Id != message.ConversationId)
             return;
 
+        var isUser = message.MessageRole == MessageRole.User;
         bool confirmed;
         try
         {
             confirmed = await Shell.Current.DisplayAlert(
                 "Delete message?",
-                "This will permanently delete this message.",
+                isUser
+                    ? "This will permanently delete this message and its assistant reply (if any)."
+                    : "This will permanently delete this message.",
                 "Delete",
                 "Cancel");
         }
@@ -671,11 +721,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ErrorMessage = string.Empty;
         try
         {
+            var index = Messages.IndexOf(message);
             var result = await _messageService.DeleteMessageAsync(message.Id);
             if (result.IsError)
             {
                 SetError(result.Errors);
                 return;
+            }
+
+            // Match service behavior: user delete also removes following assistant in UI.
+            if (isUser && index >= 0 && index + 1 < Messages.Count &&
+                Messages[index + 1].MessageRole == MessageRole.Assistant)
+            {
+                Messages.RemoveAt(index + 1);
             }
 
             Messages.Remove(message);
@@ -693,6 +751,80 @@ public sealed class MainViewModel : INotifyPropertyChanged
             IsBusy = false;
         }
     }
+
+    private async Task EditConversationAsync()
+    {
+        if (SelectedConversation is null || IsBusy || IsGenerating)
+            return;
+
+        var conversation = SelectedConversation;
+
+        string? newTitle;
+        try
+        {
+            newTitle = await Shell.Current.DisplayPromptAsync(
+                "Edit conversation",
+                "Enter a new title:",
+                accept: "Save",
+                cancel: "Cancel",
+                placeholder: "Title",
+                maxLength: 200,
+                keyboard: Keyboard.Text,
+                initialValue: conversation.Title);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return;
+        }
+
+        if (newTitle is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(newTitle))
+        {
+            ErrorMessage = "Conversation title cannot be empty.";
+            return;
+        }
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            var existing = await _conversationService.GetConversationAsync(conversation.Id);
+            if (existing.IsError)
+            {
+                SetError(existing.Errors);
+                return;
+            }
+
+            var result = await _conversationService.UpdateConversationAsync(
+                conversation.Id,
+                newTitle.Trim(),
+                existing.Value.ConversationType,
+                existing.Value.IsCompleted);
+
+            if (result.IsError)
+            {
+                SetError(result.Errors);
+                return;
+            }
+
+            conversation.Title = result.Value.Title;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Unable to rename the conversation.";
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(ex);
+#endif
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private void SetError(IEnumerable<ErrorOr.Error> errors)
     {
         ErrorMessage = errors.FirstOrDefault().Description ?? "The operation failed.";
