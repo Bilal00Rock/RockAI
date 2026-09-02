@@ -126,6 +126,7 @@ public sealed class MauiFilePickerService : IFilePickerService
         ".json", ".csv", ".xml",
         ".cs", ".js", ".ts", ".tsx", ".jsx", ".py",
         ".html", ".css", ".xaml", ".sql",
-        ".pdf"
+        ".pdf",
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"
     ];
 }

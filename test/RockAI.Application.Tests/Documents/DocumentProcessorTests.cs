@@ -25,7 +25,8 @@ public class DocumentProcessorTests
             new PlainTextExtractor(),
             new MarkdownExtractor(),
             new SourceCodeExtractor(),
-            new StructuredTextExtractor()
+            new StructuredTextExtractor(),
+            new ImageExtractor()
         };
 
         _processor = new DocumentProcessor(_storage, extractors);
@@ -39,6 +40,7 @@ public class DocumentProcessorTests
         Assert.True(_processor.IsSupported("cs"));
         Assert.True(_processor.IsSupported("json"));
         Assert.True(_processor.IsSupported("csv"));
+        Assert.True(_processor.IsSupported("png", "image/png"));
     }
 
     [Fact]
@@ -149,6 +151,59 @@ public class DocumentProcessorTests
         Assert.False(result.IsError);
         Assert.True(result.Value.Success);
         Assert.True(string.IsNullOrWhiteSpace(result.Value.ExtractedText));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PngFile_SucceedsWithImageMetadata()
+    {
+        var relative = "conv1/att6/image.png";
+        var pngHeader = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        await using (var ms = new MemoryStream(pngHeader))
+        {
+            await _storage.StoreAsync(ms, relative);
+        }
+
+        var attachment = new Attachment(
+            messageId: Guid.NewGuid(),
+            originalFileName: "image.png",
+            fileName: "image.png",
+            extension: "png",
+            mimeType: "image/png",
+            sizeBytes: pngHeader.Length,
+            relativePath: relative);
+
+        var result = await _processor.ProcessAsync(attachment);
+
+        Assert.False(result.IsError);
+        Assert.True(result.Value.Success);
+        Assert.Equal("Image", result.Value.DocumentType);
+        Assert.True(string.IsNullOrEmpty(result.Value.ExtractedText));
+        Assert.Equal("image/png", result.Value.Metadata["MimeType"]);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_InvalidImageContent_ReturnsFailedResult()
+    {
+        var relative = "conv1/att7/image.jpg";
+        await using (var ms = new MemoryStream(new byte[] { 0x01, 0x02, 0x03 }))
+        {
+            await _storage.StoreAsync(ms, relative);
+        }
+
+        var attachment = new Attachment(
+            messageId: Guid.NewGuid(),
+            originalFileName: "image.jpg",
+            fileName: "image.jpg",
+            extension: "jpg",
+            mimeType: "image/jpeg",
+            sizeBytes: 3,
+            relativePath: relative);
+
+        var result = await _processor.ProcessAsync(attachment);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.Success);
+        Assert.Equal("Image", result.Value.DocumentType);
     }
 
     [Fact]

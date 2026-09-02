@@ -20,7 +20,8 @@ public sealed class DocumentProcessor : IDocumentProcessor
         "json", "csv", "xml",
         "cs", "js", "ts", "tsx", "jsx", "py",
         "html", "css", "xaml", "sql",
-        "pdf" // registered for future; extractor may not be present yet
+        "pdf", // registered for future; extractor may not be present yet
+        "png", "jpg", "jpeg", "gif", "webp", "bmp"
     };
 
     public DocumentProcessor(
@@ -118,6 +119,7 @@ public sealed class DocumentProcessor : IDocumentProcessor
         "xml" => "Xml",
         "csv" => "Csv",
         "pdf" => "Pdf",
+        "png" or "jpg" or "jpeg" or "gif" or "webp" or "bmp" => "Image",
         "cs" or "js" or "ts" or "tsx" or "jsx" or "py" or "html" or "css" or "xaml" or "sql" => "SourceCode",
         "txt" => "PlainText",
         _ => "Unknown"

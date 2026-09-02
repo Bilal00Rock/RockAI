@@ -70,6 +70,7 @@ public static class DependencyInjection
         services.AddSingleton<IFileContentExtractor, SourceCodeExtractor>();
         services.AddSingleton<IFileContentExtractor, StructuredTextExtractor>();
         services.AddSingleton<IFileContentExtractor, PdfTextExtractor>();
+        services.AddSingleton<IFileContentExtractor, ImageExtractor>();
         services.AddScoped<IDocumentProcessor, DocumentProcessor>();
         services.AddScoped<IAttachmentService, AttachmentService>();
 
